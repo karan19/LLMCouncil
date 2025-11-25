@@ -9,6 +9,7 @@ export default function ChatInterface({
   conversation,
   onSendMessage,
   isLoading,
+  canSend = true,
 }) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
@@ -23,7 +24,7 @@ export default function ChatInterface({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
+    if (input.trim() && !isLoading && canSend) {
       onSendMessage(input);
       setInput('');
     }
@@ -128,15 +129,15 @@ export default function ChatInterface({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isLoading}
+            disabled={isLoading || !canSend}
             rows={3}
           />
           <button
             type="submit"
             className="send-button"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || !canSend}
           >
-            Send
+            {canSend ? 'Send' : 'Select at least one model'}
           </button>
         </form>
       )}

@@ -9,10 +9,14 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [selectedModels, setSelectedModels] = useState([]);
+  const [chairmanModel, setChairmanModel] = useState('');
 
   // Load conversations on mount
   useEffect(() => {
     loadConversations();
+    loadModels();
   }, []);
 
   // Load conversation details when selected
@@ -40,6 +44,20 @@ function App() {
     }
   };
 
+  const loadModels = async () => {
+    try {
+      const res = await api.listModels();
+      setAvailableModels(res.available_models || res.default_council_models || []);
+      setSelectedModels(res.default_council_models || res.available_models || []);
+      setChairmanModel(res.default_chairman_model || '');
+    } catch (error) {
+      console.error('Failed to load models:', error);
+      setAvailableModels([]);
+      setSelectedModels([]);
+      setChairmanModel('');
+    }
+  };
+
   const handleNewConversation = async () => {
     try {
       const newConv = await api.createConversation();
@@ -59,6 +77,10 @@ function App() {
 
   const handleSendMessage = async (content) => {
     if (!currentConversationId) return;
+    const modelsToUse =
+      selectedModels && selectedModels.length > 0
+        ? selectedModels
+        : availableModels;
 
     setIsLoading(true);
     try {
@@ -90,86 +112,94 @@ function App() {
       }));
 
       // Send message with streaming
-      await api.sendMessageStream(currentConversationId, content, (eventType, event) => {
-        switch (eventType) {
-          case 'stage1_start':
-            setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage1 = true;
-              return { ...prev, messages };
-            });
-            break;
+      await api.sendMessageStream(
+        currentConversationId,
+        content,
+        (eventType, event) => {
+          switch (eventType) {
+            case 'stage1_start':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.loading.stage1 = true;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage1_complete':
-            setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage1 = event.data;
-              lastMsg.loading.stage1 = false;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage1_complete':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.stage1 = event.data;
+                lastMsg.loading.stage1 = false;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage2_start':
-            setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage2 = true;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage2_start':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.loading.stage2 = true;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage2_complete':
-            setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage2 = event.data;
-              lastMsg.metadata = event.metadata;
-              lastMsg.loading.stage2 = false;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage2_complete':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.stage2 = event.data;
+                lastMsg.metadata = event.metadata;
+                lastMsg.loading.stage2 = false;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage3_start':
-            setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.loading.stage3 = true;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage3_start':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.loading.stage3 = true;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'stage3_complete':
-            setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
-              const lastMsg = messages[messages.length - 1];
-              lastMsg.stage3 = event.data;
-              lastMsg.loading.stage3 = false;
-              return { ...prev, messages };
-            });
-            break;
+            case 'stage3_complete':
+              setCurrentConversation((prev) => {
+                const messages = [...prev.messages];
+                const lastMsg = messages[messages.length - 1];
+                lastMsg.stage3 = event.data;
+                lastMsg.loading.stage3 = false;
+                return { ...prev, messages };
+              });
+              break;
 
-          case 'title_complete':
-            // Reload conversations to get updated title
-            loadConversations();
-            break;
+            case 'title_complete':
+              // Reload conversations to get updated title
+              loadConversations();
+              break;
 
-          case 'complete':
-            // Stream complete, reload conversations list
-            loadConversations();
-            setIsLoading(false);
-            break;
+            case 'complete':
+              // Stream complete, reload conversations list
+              loadConversations();
+              setIsLoading(false);
+              break;
 
-          case 'error':
-            console.error('Stream error:', event.message);
-            setIsLoading(false);
-            break;
+            case 'error':
+              console.error('Stream error:', event.message);
+              setIsLoading(false);
+              break;
 
-          default:
-            console.log('Unknown event type:', eventType);
+            default:
+              console.log('Unknown event type:', eventType);
+          }
+        },
+        {
+          models: modelsToUse,
+          chairmanModel,
         }
-      });
+      );
     } catch (error) {
       console.error('Failed to send message:', error);
       // Remove optimistic messages on error
@@ -188,11 +218,23 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        availableModels={availableModels}
+        selectedModels={selectedModels}
+        onToggleModel={(model) => {
+          setSelectedModels((prev) =>
+            prev.includes(model)
+              ? prev.filter((m) => m !== model)
+              : [...prev, model]
+          );
+        }}
+        chairmanModel={chairmanModel}
+        onChairmanChange={setChairmanModel}
       />
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+        canSend={(selectedModels && selectedModels.length > 0) || availableModels.length > 0}
       />
     </div>
   );

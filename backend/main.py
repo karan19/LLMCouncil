@@ -4,13 +4,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
 
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, EXCLUDED_MODEL_FAMILIES, EXCLUDED_MODELS, EXCLUDED_MODEL_PATTERNS
+from .openrouter import list_models as list_openrouter_models
+import re
 
 app = FastAPI(title="LLM Council API")
 
@@ -32,6 +35,8 @@ class CreateConversationRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     """Request to send a message in a conversation."""
     content: str
+    models: Optional[List[str]] = None
+    chairman_model: Optional[str] = None
 
 
 class ConversationMetadata(BaseModel):
@@ -60,6 +65,45 @@ async def root():
 async def list_conversations():
     """List all conversations (metadata only)."""
     return storage.list_conversations()
+
+
+@app.get("/api/models")
+async def list_models():
+    """List available council models and defaults."""
+    available = await list_openrouter_models()
+    source = "openrouter" if available else "config"
+    if not available:
+        available = COUNCIL_MODELS
+
+    def matches_pattern(model: str) -> bool:
+        for pattern in EXCLUDED_MODEL_PATTERNS:
+            try:
+                if re.fullmatch(pattern, model):
+                    return True
+            except re.error:
+                continue
+        return False
+
+    def is_allowed(model: str) -> bool:
+        provider = model.split("/")[0] if "/" in model else model
+        if provider in EXCLUDED_MODEL_FAMILIES:
+            return False
+        if model in EXCLUDED_MODELS:
+            return False
+        if matches_pattern(model):
+            return False
+        return True
+
+    filtered_available = sorted([m for m in available if is_allowed(m)])
+    filtered_defaults = sorted([m for m in COUNCIL_MODELS if is_allowed(m)])
+    default_chair = CHAIRMAN_MODEL if is_allowed(CHAIRMAN_MODEL) else (filtered_available[0] if filtered_available else "")
+
+    return {
+        "available_models": filtered_available,
+        "default_council_models": filtered_defaults,
+        "default_chairman_model": default_chair,
+        "source": source,
+    }
 
 
 @app.post("/api/conversations", response_model=Conversation)
@@ -103,7 +147,9 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
 
     # Run the 3-stage council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
+        request.content,
+        council_models=request.models,
+        chairman_model=request.chairman_model,
     )
 
     # Add assistant message with all stages
@@ -149,18 +195,30 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+            stage1_results = await stage1_collect_responses(
+                request.content,
+                models=request.models,
+            )
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            stage2_results, label_to_model = await stage2_collect_rankings(
+                request.content,
+                stage1_results,
+                models=request.models,
+            )
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(
+                request.content,
+                stage1_results,
+                stage2_results,
+                chairman_model=request.chairman_model,
+            )
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started

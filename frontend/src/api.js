@@ -6,6 +6,17 @@ const API_BASE = 'http://localhost:8001';
 
 export const api = {
   /**
+   * List available models and defaults from backend config.
+   */
+  async listModels() {
+    const response = await fetch(`${API_BASE}/api/models`);
+    if (!response.ok) {
+      throw new Error('Failed to list models');
+    }
+    return response.json();
+  },
+
+  /**
    * List all conversations.
    */
   async listConversations() {
@@ -49,7 +60,7 @@ export const api = {
   /**
    * Send a message in a conversation.
    */
-  async sendMessage(conversationId, content) {
+  async sendMessage(conversationId, content, options = {}) {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}/message`,
       {
@@ -57,7 +68,11 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({
+          content,
+          models: options.models,
+          chairman_model: options.chairmanModel,
+        }),
       }
     );
     if (!response.ok) {
@@ -73,7 +88,7 @@ export const api = {
    * @param {function} onEvent - Callback function for each event: (eventType, data) => void
    * @returns {Promise<void>}
    */
-  async sendMessageStream(conversationId, content, onEvent) {
+  async sendMessageStream(conversationId, content, onEvent, options = {}) {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}/message/stream`,
       {
@@ -81,7 +96,11 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({
+          content,
+          models: options.models,
+          chairman_model: options.chairmanModel,
+        }),
       }
     );
 

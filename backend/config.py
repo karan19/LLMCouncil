@@ -19,6 +19,18 @@ COUNCIL_MODELS = [
 # Chairman model - synthesizes final response
 CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 
+# Models/families to hide from UI/model picker
+# Examples:
+# EXCLUDED_MODEL_FAMILIES = ["huggingface", "replicate"]
+# EXCLUDED_MODELS = ["openai/gpt-3.5-turbo"]
+# Add exact model IDs to EXCLUDED_MODELS (e.g., "mistralai/voxtral-small-24b-2507").
+# Add provider prefixes to EXCLUDED_MODEL_FAMILIES (e.g., "mistralai") to hide all their models.
+# Use EXCLUDED_MODEL_PATTERNS for regex (e.g., r"openai/gpt-.*" to hide all openai gpt-* models).
+EXCLUDED_MODEL_FAMILIES = ["alibaba"]
+EXCLUDED_MODELS = ["mistralai/voxtral-small-24b-2507"]
+# Regex/wildcard patterns to hide models (e.g., r"openai/gpt-.*")
+EXCLUDED_MODEL_PATTERNS = []
+
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 

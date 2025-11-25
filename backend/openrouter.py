@@ -77,3 +77,25 @@ async def query_models_parallel(
 
     # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
+
+
+async def list_models() -> List[str]:
+    """
+    Fetch available models from OpenRouter. Returns IDs (e.g., "openai/gpt-4o").
+    Falls back to empty list on error.
+    """
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get("https://openrouter.ai/api/v1/models", headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict) and "data" in data:
+                return [item["id"] for item in data["data"] if "id" in item]
+    except Exception as e:
+        print(f"Error listing models from OpenRouter: {e}")
+
+    return []
