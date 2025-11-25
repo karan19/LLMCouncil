@@ -16,7 +16,6 @@ from aws_cdk import (
     aws_lambda as _lambda,
     aws_ssm as ssm,
 )
-from aws_cdk.aws_lambda import BundlingOptions
 from constructs import Construct
 
 
@@ -55,7 +54,7 @@ class LlmCouncilStack(Stack):
             handler="backend.main.lambda_handler",
             code=_lambda.Code.from_asset(
                 "../..",
-                bundling=BundlingOptions(
+                bundling=_lambda.BundlingOptions(
                     image=_lambda.Runtime.PYTHON_3_12.bundling_image,
                     command=[
                         "bash",
