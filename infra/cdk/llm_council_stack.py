@@ -54,7 +54,7 @@ class LlmCouncilStack(Stack):
             handler="backend.main.lambda_handler",
             code=_lambda.Code.from_asset(
                 "../..",
-                bundling=_lambda.BundlingOptions(
+                bundling=cdk.BundlingOptions(
                     image=_lambda.Runtime.PYTHON_3_12.bundling_image,
                     command=[
                         "bash",
