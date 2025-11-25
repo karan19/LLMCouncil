@@ -1,75 +1,65 @@
-"""FastAPI backend for LLM Council."""
+"""Lambda-native backend entrypoint (no FastAPI)."""
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-import uuid
-import json
+from __future__ import annotations
+
 import asyncio
+import base64
+import json
+import re
+import uuid
+from typing import Any, Dict
 
 from . import storage
-from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, EXCLUDED_MODEL_FAMILIES, EXCLUDED_MODELS, EXCLUDED_MODEL_PATTERNS
-from .openrouter import list_models as list_openrouter_models
-import re
-
-app = FastAPI(title="LLM Council API")
-
-# Enable CORS for local development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+from .config import (
+    CHAIRMAN_MODEL,
+    COUNCIL_MODELS,
+    EXCLUDED_MODEL_FAMILIES,
+    EXCLUDED_MODEL_PATTERNS,
+    EXCLUDED_MODELS,
 )
+from .council import (
+    calculate_aggregate_rankings,
+    generate_conversation_title,
+    run_full_council,
+    stage1_collect_responses,
+    stage2_collect_rankings,
+    stage3_synthesize_final,
+)
+from .openrouter import list_models as list_openrouter_models
 
 
-class CreateConversationRequest(BaseModel):
-    """Request to create a new conversation."""
-    pass
+DEFAULT_HEADERS = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Methods": "OPTIONS,GET,POST",
+}
 
 
-class SendMessageRequest(BaseModel):
-    """Request to send a message in a conversation."""
-    content: str
-    models: Optional[List[str]] = None
-    chairman_model: Optional[str] = None
+def _response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Build an API Gateway compatible response with default CORS headers."""
+    return {
+        "statusCode": status_code,
+        "headers": DEFAULT_HEADERS,
+        "body": json.dumps(body),
+    }
 
 
-class ConversationMetadata(BaseModel):
-    """Conversation metadata for list view."""
-    id: str
-    created_at: str
-    title: str
-    message_count: int
+def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse JSON request body, handling optional base64 encoding."""
+    raw = event.get("body")
+    if raw is None:
+        return {}
+    if event.get("isBase64Encoded"):
+        raw = base64.b64decode(raw).decode()
+    try:
+        return json.loads(raw) if raw else {}
+    except json.JSONDecodeError:
+        return {}
 
 
-class Conversation(BaseModel):
-    """Full conversation with all messages."""
-    id: str
-    created_at: str
-    title: str
-    messages: List[Dict[str, Any]]
-
-
-@app.get("/")
-async def root():
-    """Health check endpoint."""
-    return {"status": "ok", "service": "LLM Council API"}
-
-
-@app.get("/api/conversations", response_model=List[ConversationMetadata])
-async def list_conversations():
-    """List all conversations (metadata only)."""
-    return storage.list_conversations()
-
-
-@app.get("/api/models")
-async def list_models():
-    """List available council models and defaults."""
+async def _list_models() -> Dict[str, Any]:
+    """List available council models and defaults, honoring exclusions."""
     available = await list_openrouter_models()
     source = "openrouter" if available else "config"
     if not available:
@@ -96,7 +86,11 @@ async def list_models():
 
     filtered_available = sorted([m for m in available if is_allowed(m)])
     filtered_defaults = sorted([m for m in COUNCIL_MODELS if is_allowed(m)])
-    default_chair = CHAIRMAN_MODEL if is_allowed(CHAIRMAN_MODEL) else (filtered_available[0] if filtered_available else "")
+    default_chair = (
+        CHAIRMAN_MODEL
+        if is_allowed(CHAIRMAN_MODEL)
+        else (filtered_available[0] if filtered_available else "")
+    )
 
     return {
         "available_models": filtered_available,
@@ -106,152 +100,164 @@ async def list_models():
     }
 
 
-@app.post("/api/conversations", response_model=Conversation)
-async def create_conversation(request: CreateConversationRequest):
-    """Create a new conversation."""
-    conversation_id = str(uuid.uuid4())
-    conversation = storage.create_conversation(conversation_id)
-    return conversation
-
-
-@app.get("/api/conversations/{conversation_id}", response_model=Conversation)
-async def get_conversation(conversation_id: str):
-    """Get a specific conversation with all its messages."""
+async def _send_message(conversation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle message send flow and return council results."""
     conversation = storage.get_conversation(conversation_id)
     if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return conversation
+        return _response(404, {"error": "Conversation not found"})
 
+    is_first_message = len(conversation.get("messages", [])) == 0
+    content = payload.get("content", "")
+    models = payload.get("models")
+    chairman_model = payload.get("chairman_model") or payload.get("chairmanModel")
 
-@app.post("/api/conversations/{conversation_id}/message")
-async def send_message(conversation_id: str, request: SendMessageRequest):
-    """
-    Send a message and run the 3-stage council process.
-    Returns the complete response with all stages.
-    """
-    # Check if conversation exists
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    if not content:
+        return _response(400, {"error": "Message content is required"})
 
-    # Check if this is the first message
-    is_first_message = len(conversation["messages"]) == 0
+    storage.add_user_message(conversation_id, content)
 
-    # Add user message
-    storage.add_user_message(conversation_id, request.content)
-
-    # If this is the first message, generate a title
     if is_first_message:
-        title = await generate_conversation_title(request.content)
+        title = await generate_conversation_title(content)
         storage.update_conversation_title(conversation_id, title)
 
-    # Run the 3-stage council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content,
-        council_models=request.models,
-        chairman_model=request.chairman_model,
+        content,
+        council_models=models,
+        chairman_model=chairman_model,
     )
 
-    # Add assistant message with all stages
     storage.add_assistant_message(
         conversation_id,
         stage1_results,
         stage2_results,
-        stage3_result
+        stage3_result,
     )
 
-    # Return the complete response with metadata
-    return {
-        "stage1": stage1_results,
-        "stage2": stage2_results,
-        "stage3": stage3_result,
-        "metadata": metadata
-    }
+    return _response(
+        200,
+        {
+            "stage1": stage1_results,
+            "stage2": stage2_results,
+            "stage3": stage3_result,
+            "metadata": metadata,
+        },
+    )
 
 
-@app.post("/api/conversations/{conversation_id}/message/stream")
-async def send_message_stream(conversation_id: str, request: SendMessageRequest):
+async def _send_message_stream(conversation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Send a message and stream the 3-stage council process.
-    Returns Server-Sent Events as each stage completes.
+    Placeholder for streaming; returns staged responses sequentially.
+    This keeps the contract but does not use SSE so it fits HTTP APIs.
     """
-    # Check if conversation exists
     conversation = storage.get_conversation(conversation_id)
     if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        return _response(404, {"error": "Conversation not found"})
 
-    # Check if this is the first message
-    is_first_message = len(conversation["messages"]) == 0
+    is_first_message = len(conversation.get("messages", [])) == 0
+    content = payload.get("content", "")
+    models = payload.get("models")
+    chairman_model = payload.get("chairman_model") or payload.get("chairmanModel")
 
-    async def event_generator():
-        try:
-            # Add user message
-            storage.add_user_message(conversation_id, request.content)
+    if not content:
+        return _response(400, {"error": "Message content is required"})
 
-            # Start title generation in parallel (don't await yet)
-            title_task = None
-            if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
+    storage.add_user_message(conversation_id, content)
 
-            # Stage 1: Collect responses
-            yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(
-                request.content,
-                models=request.models,
-            )
-            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
+    if is_first_message:
+        title = await generate_conversation_title(content)
+        storage.update_conversation_title(conversation_id, title)
 
-            # Stage 2: Collect rankings
-            yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(
-                request.content,
-                stage1_results,
-                models=request.models,
-            )
-            aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
+    stage1_results = await stage1_collect_responses(content, models=models)
+    stage2_results, label_to_model = await stage2_collect_rankings(
+        content,
+        stage1_results,
+        models=models,
+    )
+    aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
+    stage3_result = await stage3_synthesize_final(
+        content,
+        stage1_results,
+        stage2_results,
+        chairman_model=chairman_model,
+    )
 
-            # Stage 3: Synthesize final answer
-            yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(
-                request.content,
-                stage1_results,
-                stage2_results,
-                chairman_model=request.chairman_model,
-            )
-            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
+    metadata = {
+        "label_to_model": label_to_model,
+        "aggregate_rankings": aggregate_rankings,
+    }
 
-            # Wait for title generation if it was started
-            if title_task:
-                title = await title_task
-                storage.update_conversation_title(conversation_id, title)
-                yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
+    storage.add_assistant_message(
+        conversation_id,
+        stage1_results,
+        stage2_results,
+        stage3_result,
+    )
 
-            # Save complete assistant message
-            storage.add_assistant_message(
-                conversation_id,
-                stage1_results,
-                stage2_results,
-                stage3_result
-            )
-
-            # Send completion event
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-
-        except Exception as e:
-            # Send error event
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        }
+    return _response(
+        200,
+        {
+            "stage1": stage1_results,
+            "stage2": stage2_results,
+            "stage3": stage3_result,
+            "metadata": metadata,
+        },
     )
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Route incoming API Gateway events."""
+    http = event.get("requestContext", {}).get("http", {})
+    method = http.get("method", "").upper()
+    path = event.get("rawPath") or http.get("path") or ""
+    query_params = event.get("queryStringParameters") or {}
+
+    if method == "OPTIONS":
+        return _response(200, {"status": "ok"})
+
+    if path == "/" and method == "GET":
+        return _response(200, {"status": "ok", "service": "LLM Council API"})
+
+    if path == "/api/models" and method == "GET":
+        models = await _list_models()
+        return _response(200, models)
+
+    if path == "/api/conversations" and method == "GET":
+        return _response(200, storage.list_conversations())
+
+    if path == "/api/conversations" and method == "POST":
+        conversation_id = str(uuid.uuid4())
+        conversation = storage.create_conversation(conversation_id)
+        return _response(201, conversation)
+
+    match_message_stream = re.match(r"^/api/conversations/([^/]+)/message/stream$", path)
+    match_message = re.match(r"^/api/conversations/([^/]+)/message$", path)
+    match_conversation = re.match(r"^/api/conversations/([^/]+)$", path)
+
+    if match_message_stream and method == "POST":
+        body = _parse_body(event)
+        conversation_id = match_message_stream.group(1)
+        return await _send_message_stream(conversation_id, body)
+
+    if match_message and method == "POST":
+        body = _parse_body(event)
+        conversation_id = match_message.group(1)
+        if query_params.get("stream") == "true":
+            return await _send_message_stream(conversation_id, body)
+        return await _send_message(conversation_id, body)
+
+    if match_conversation and method == "GET":
+        conversation_id = match_conversation.group(1)
+        conversation = storage.get_conversation(conversation_id)
+        if conversation is None:
+            return _response(404, {"error": "Conversation not found"})
+        return _response(200, conversation)
+
+    return _response(404, {"error": "Not Found"})
+
+
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """AWS Lambda entrypoint."""
+    try:
+        return asyncio.run(_route(event))
+    except Exception as exc:  # noqa: BLE001
+        return _response(500, {"error": f"Internal server error: {exc}"})

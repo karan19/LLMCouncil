@@ -2,7 +2,7 @@
  * API client for the LLM Council backend.
  */
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8001';
 
 export const api = {
   /**
@@ -90,7 +90,7 @@ export const api = {
    */
   async sendMessageStream(conversationId, content, onEvent, options = {}) {
     const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}/message/stream`,
+      `${API_BASE}/api/conversations/${conversationId}/message?stream=true`,
       {
         method: 'POST',
         headers: {
@@ -108,27 +108,19 @@ export const api = {
       throw new Error('Failed to send message');
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    const result = await response.json();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          try {
-            const event = JSON.parse(data);
-            onEvent(event.type, event);
-          } catch (e) {
-            console.error('Failed to parse SSE event:', e);
-          }
-        }
-      }
-    }
+    // Emit staged events to keep UI logic consistent without SSE
+    onEvent('stage1_start', { type: 'stage1_start' });
+    onEvent('stage1_complete', { type: 'stage1_complete', data: result.stage1 });
+    onEvent('stage2_start', { type: 'stage2_start' });
+    onEvent('stage2_complete', {
+      type: 'stage2_complete',
+      data: result.stage2,
+      metadata: result.metadata,
+    });
+    onEvent('stage3_start', { type: 'stage3_start' });
+    onEvent('stage3_complete', { type: 'stage3_complete', data: result.stage3 });
+    onEvent('complete', { type: 'complete' });
   },
 };

@@ -59,29 +59,18 @@ CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 
 ## Running the Application
 
-**Option 1: Use the start script**
-```bash
-./start.sh
-```
+The backend is now AWS-native (API Gateway + Lambda + DynamoDB). Use the CDK app in `infra/cdk` to deploy the API and table, and set `API_BASE` in `frontend/src/api.js` (or a Vite env var) to the deployed HTTP API endpoint.
 
-**Option 2: Run manually**
-
-Terminal 1 (Backend):
-```bash
-uv run python -m backend.main
-```
-
-Terminal 2 (Frontend):
+For local frontend development:
 ```bash
 cd frontend
 npm run dev
 ```
-
 Then open http://localhost:5173 in your browser.
 
 ## Tech Stack
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
+- **Backend:** AWS Lambda (Python 3.10+), async httpx, OpenRouter API
 - **Frontend:** React + Vite, react-markdown for rendering
-- **Storage:** JSON files in `data/conversations/`
+- **Storage:** DynamoDB (conversations table)
 - **Package Management:** uv for Python, npm for JavaScript

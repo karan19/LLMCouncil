@@ -34,5 +34,5 @@ EXCLUDED_MODEL_PATTERNS = []
 # OpenRouter API endpoint
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Data directory for conversation storage
-DATA_DIR = "data/conversations"
+# DynamoDB table for conversation storage
+CONVERSATIONS_TABLE = os.getenv("CONVERSATIONS_TABLE", "llm-council-conversations")

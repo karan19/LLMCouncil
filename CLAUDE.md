@@ -13,8 +13,8 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 **`config.py`**
 - Contains `COUNCIL_MODELS` (list of OpenRouter model identifiers)
 - Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
-- Uses environment variable `OPENROUTER_API_KEY` from `.env`
-- Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
+- Uses environment variable `OPENROUTER_API_KEY` from `.env` or Lambda env
+- Uses `CONVERSATIONS_TABLE` env var for DynamoDB table name
 
 **`openrouter.py`**
 - `query_model()`: Single async model query
@@ -35,15 +35,15 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
 
 **`storage.py`**
-- JSON-based conversation storage in `data/conversations/`
+- DynamoDB conversation storage keyed by `id`
 - Each conversation: `{id, created_at, messages[]}`
 - Assistant messages contain: `{role, stage1, stage2, stage3}`
-- Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
+- Metadata (label_to_model, aggregate_rankings) is computed per request and not persisted
 
 **`main.py`**
-- FastAPI app with CORS enabled for localhost:5173 and localhost:3000
+- Lambda-native handler (no FastAPI) with simple path routing for HTTP API Gateway
 - POST `/api/conversations/{id}/message` returns metadata in addition to stages
-- Metadata includes: label_to_model mapping and aggregate_rankings
+- A `?stream=true` query falls back to staged batch delivery (no SSE)
 
 ### Frontend Structure (`frontend/src/`)
 
@@ -114,10 +114,9 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 ### Relative Imports
 All backend modules use relative imports (e.g., `from .config import ...`) not absolute imports. This is critical for Python's module system to work correctly when running as `python -m backend.main`.
 
-### Port Configuration
-- Backend: 8001 (changed from 8000 to avoid conflict)
-- Frontend: 5173 (Vite default)
-- Update both `backend/main.py` and `frontend/src/api.js` if changing
+### API Endpoints
+- Backend is fronted by API Gateway HTTP API; see `infra/cdk` for deployment details
+- Frontend dev server remains 5173 (Vite default); update `frontend/src/api.js` base URL to match deployed endpoint
 
 ### Markdown Rendering
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
@@ -127,8 +126,8 @@ Models are hardcoded in `backend/config.py`. Chairman can be same or different f
 
 ## Common Gotchas
 
-1. **Module Import Errors**: Always run backend as `python -m backend.main` from project root, not from backend directory
-2. **CORS Issues**: Frontend must match allowed origins in `main.py` CORS middleware
+1. **Lambda Handler Packaging**: Ensure the deployment bundle includes the `backend` package and the handler is `backend.main.lambda_handler`
+2. **CORS Issues**: Default headers allow `*`; lock this down to your Amplify domain in `backend/main.py` when hardening
 3. **Ranking Parse Failures**: If models don't follow format, fallback regex extracts any "Response X" patterns in order
 4. **Missing Metadata**: Metadata is ephemeral (not persisted), only available in API responses
 

@@ -1,0 +1,46 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install CDK dependencies
+        run: |
+          pip install -r infra/cdk/requirements.txt
+          npm install -g aws-cdk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: CDK synth
+        working-directory: infra/cdk
+        run: cdk synth
+
+      - name: CDK deploy
+        working-directory: infra/cdk
+        run: |
+          cdk deploy LlmCouncilStack --require-approval never \
+            -c cognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} \
+            -c cognitoUserPoolClientId=${{ secrets.COGNITO_USER_POOL_CLIENT_ID }} \
+            -c openrouterApiKeyParam=${{ secrets.OPENROUTER_PARAM_NAME }}
