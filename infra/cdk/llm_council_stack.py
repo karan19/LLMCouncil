@@ -105,7 +105,10 @@ class LlmCouncilStack(Stack):
             "AllowHttpApiInvoke",
             principal=iam.ServicePrincipal("apigateway.amazonaws.com"),
             action="lambda:InvokeFunction",
-            source_arn=f"{http_api.api_arn}/*",
+            source_arn=cdk.Fn.sub(
+                "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:"
+                f"{http_api.api_id}/*"
+            ),
         )
 
         cdk.CfnOutput(self, "HttpApiUrl", value=http_api.api_endpoint)
