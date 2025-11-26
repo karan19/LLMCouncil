@@ -16,6 +16,7 @@ from .config import (
     EXCLUDED_MODEL_FAMILIES,
     EXCLUDED_MODEL_PATTERNS,
     EXCLUDED_MODELS,
+    OPENROUTER_API_KEY,
 )
 from .council import (
     calculate_aggregate_rankings,
@@ -60,6 +61,7 @@ def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
 
 async def _list_models() -> Dict[str, Any]:
     """List available council models and defaults, honoring exclusions."""
+    print(f"OpenRouter key present: {bool(OPENROUTER_API_KEY)}")
     available = await list_openrouter_models()
     source = "openrouter" if available else "config"
     if not available:
