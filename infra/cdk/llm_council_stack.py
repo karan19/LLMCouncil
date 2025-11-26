@@ -99,6 +99,13 @@ class LlmCouncilStack(Stack):
                 payload_format_version=apigwv2.PayloadFormatVersion.VERSION_2_0,
             ),
             default_authorizer=authorizer,
+            cors_preflight=apigwv2.CorsPreflightOptions(
+                allow_headers=["*"],
+                allow_methods=[apigwv2.CorsHttpMethod.ANY],
+                allow_origins=["*"],
+                expose_headers=["*"],
+                max_age=Duration.days(10),
+            ),
         )
 
         lambda_fn.add_permission(

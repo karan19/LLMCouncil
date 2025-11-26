@@ -42,6 +42,14 @@ OPENROUTER_API_KEY=sk-or-v1-...
 
 Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
 
+For Cognito-authenticated frontend access, set (e.g., in `frontend/.env` or Amplify env vars):
+```
+VITE_API_BASE=https://<your-api-id>.execute-api.<region>.amazonaws.com
+VITE_COGNITO_DOMAIN=<your-user-pool-domain>.auth.<region>.amazoncognito.com
+VITE_COGNITO_CLIENT_ID=<your-app-client-id>
+VITE_COGNITO_REDIRECT_URI=https://<your-frontend-domain>
+```
+
 ### 3. Configure Models (Optional)
 
 Edit `backend/config.py` to customize the council:

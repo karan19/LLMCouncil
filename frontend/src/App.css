@@ -13,3 +13,25 @@
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
 }
+
+.auth-bar {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+}
+
+.auth-button {
+  background: #2563eb;
+  color: #f8fafc;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 6px 12px rgba(37, 99, 235, 0.25);
+}
+
+.auth-button:hover {
+  opacity: 0.92;
+}

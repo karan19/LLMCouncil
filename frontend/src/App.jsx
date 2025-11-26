@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
-import { api } from './api';
+import { api, setAuthToken as setApiAuthToken } from './api';
+import LoginPage from './components/LoginPage';
+import {
+  getStoredTokens,
+  storeTokens,
+  clearTokens,
+  parseHashTokens,
+} from './auth';
 import './App.css';
 
 function App() {
@@ -12,12 +19,23 @@ function App() {
   const [availableModels, setAvailableModels] = useState([]);
   const [selectedModels, setSelectedModels] = useState([]);
   const [chairmanModel, setChairmanModel] = useState('');
+  const [authTokens, setAuthTokens] = useState(getStoredTokens());
 
-  // Load conversations on mount
+  // Load auth from hash or storage, then bootstrap data when tokens exist
   useEffect(() => {
-    loadConversations();
-    loadModels();
-  }, []);
+    const tokensFromHash = parseHashTokens(window.location.hash);
+    if (tokensFromHash) {
+      storeTokens(tokensFromHash);
+      setAuthTokens(tokensFromHash);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    if (authTokens) {
+      setApiAuthToken(authTokens.idToken);
+      loadConversations();
+      loadModels();
+    }
+  }, [authTokens]);
 
   // Load conversation details when selected
   useEffect(() => {
@@ -211,8 +229,31 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    clearTokens();
+    setAuthTokens(null);
+    setApiAuthToken(null);
+  };
+
+  if (!authTokens) {
+    return (
+      <LoginPage
+        onLogin={(tokens) => {
+          storeTokens(tokens);
+          setAuthTokens(tokens);
+          setApiAuthToken(tokens.idToken);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app">
+      <div className="auth-bar">
+        <button className="auth-button" onClick={handleLogout}>
+          Sign out
+        </button>
+      </div>
       <Sidebar
         conversations={conversations}
         currentConversationId={currentConversationId}

@@ -4,12 +4,24 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8001';
 
+let authToken = null;
+
+export const setAuthToken = (token) => {
+  authToken = token;
+};
+
+const authHeaders = () => (authToken ? { Authorization: `Bearer ${authToken}` } : {});
+
 export const api = {
   /**
    * List available models and defaults from backend config.
    */
   async listModels() {
-    const response = await fetch(`${API_BASE}/api/models`);
+    const response = await fetch(`${API_BASE}/api/models`, {
+      headers: {
+        ...authHeaders(),
+      },
+    });
     if (!response.ok) {
       throw new Error('Failed to list models');
     }
@@ -20,7 +32,11 @@ export const api = {
    * List all conversations.
    */
   async listConversations() {
-    const response = await fetch(`${API_BASE}/api/conversations`);
+    const response = await fetch(`${API_BASE}/api/conversations`, {
+      headers: {
+        ...authHeaders(),
+      },
+    });
     if (!response.ok) {
       throw new Error('Failed to list conversations');
     }
@@ -35,6 +51,7 @@ export const api = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders(),
       },
       body: JSON.stringify({}),
     });
@@ -49,7 +66,12 @@ export const api = {
    */
   async getConversation(conversationId) {
     const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}`
+      `${API_BASE}/api/conversations/${conversationId}`,
+      {
+        headers: {
+          ...authHeaders(),
+        },
+      }
     );
     if (!response.ok) {
       throw new Error('Failed to get conversation');
@@ -67,6 +89,7 @@ export const api = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders(),
         },
         body: JSON.stringify({
           content,
@@ -95,6 +118,7 @@ export const api = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders(),
         },
         body: JSON.stringify({
           content,
