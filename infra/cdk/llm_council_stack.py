@@ -145,13 +145,13 @@ class LlmCouncilStack(Stack):
         # Protect GET/POST with authorizer; leave OPTIONS without authorizer to satisfy CORS preflight
         http_api.add_routes(
             path="/{proxy+}",
-            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST, apigwv2.HttpMethod.DELETE],
             integration=lambda_integration,
             authorizer=authorizer,
         )
         http_api.add_routes(
             path="/",
-            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST, apigwv2.HttpMethod.DELETE],
             integration=lambda_integration,
             authorizer=authorizer,
         )
