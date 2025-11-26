@@ -31,7 +31,7 @@ from .openrouter import list_models as list_openrouter_models
 DEFAULT_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token,X-Api-Key",
     "Access-Control-Allow-Methods": "OPTIONS,GET,POST",
 }
 

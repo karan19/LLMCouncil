@@ -90,27 +90,67 @@ class LlmCouncilStack(Stack):
                 jwt_audience=[cognito_user_pool_client_id],
             )
 
+        lambda_integration = apigwv2_integrations.HttpLambdaIntegration(
+            "LambdaIntegration",
+            handler=lambda_fn,
+            payload_format_version=apigwv2.PayloadFormatVersion.VERSION_2_0,
+        )
+
         http_api = apigwv2.HttpApi(
             self,
             "CouncilHttpApi",
-            default_integration=apigwv2_integrations.HttpLambdaIntegration(
-                "LambdaIntegration",
-                handler=lambda_fn,
-                payload_format_version=apigwv2.PayloadFormatVersion.VERSION_2_0,
-            ),
-            default_authorizer=authorizer,
             cors_preflight=apigwv2.CorsPreflightOptions(
-                allow_headers=["*"],
-                allow_methods=[apigwv2.CorsHttpMethod.ANY],
+                allow_headers=[
+                    "Authorization",
+                    "Content-Type",
+                    "X-Amz-Date",
+                    "X-Amz-Security-Token",
+                    "X-Api-Key",
+                ],
+                allow_methods=[
+                    apigwv2.CorsHttpMethod.OPTIONS,
+                    apigwv2.CorsHttpMethod.GET,
+                    apigwv2.CorsHttpMethod.POST,
+                ],
                 allow_origins=[
                     "http://localhost:5173",
                     "http://localhost:5174",
                     "http://localhost:5175",
                     "https://aws-native.d17aa5hezcp3mr.amplifyapp.com",
                 ],
-                expose_headers=["*"],
+                expose_headers=[
+                    "Authorization",
+                    "Content-Type",
+                    "X-Amz-Date",
+                    "X-Amz-Security-Token",
+                    "X-Api-Key",
+                ],
                 max_age=Duration.days(10),
             ),
+        )
+
+        # Protect GET/POST with authorizer; leave OPTIONS without authorizer to satisfy CORS preflight
+        http_api.add_routes(
+            path="/{proxy+}",
+            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+            integration=lambda_integration,
+            authorizer=authorizer,
+        )
+        http_api.add_routes(
+            path="/",
+            methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+            integration=lambda_integration,
+            authorizer=authorizer,
+        )
+        http_api.add_routes(
+            path="/{proxy+}",
+            methods=[apigwv2.HttpMethod.OPTIONS],
+            integration=lambda_integration,
+        )
+        http_api.add_routes(
+            path="/",
+            methods=[apigwv2.HttpMethod.OPTIONS],
+            integration=lambda_integration,
         )
 
         lambda_fn.add_permission(
