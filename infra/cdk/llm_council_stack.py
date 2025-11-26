@@ -103,7 +103,6 @@ class LlmCouncilStack(Stack):
                 allow_headers=["*"],
                 allow_methods=[apigwv2.CorsHttpMethod.ANY],
                 allow_origins=["*"],
-                allow_credentials=True,
                 expose_headers=["*"],
                 max_age=Duration.days(10),
             ),
