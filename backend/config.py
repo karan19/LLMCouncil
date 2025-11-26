@@ -5,8 +5,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+import boto3
+from functools import lru_cache
+
+# OpenRouter API key: prefer direct env, else fetch from SSM using OPENROUTER_PARAM_NAME
+@lru_cache(maxsize=1)
+def _load_openrouter_api_key() -> str | None:
+    direct = os.getenv("OPENROUTER_API_KEY")
+    if direct:
+        return direct
+    param_name = os.getenv("OPENROUTER_PARAM_NAME")
+    if not param_name:
+        return None
+    try:
+        ssm = boto3.client("ssm")
+        resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        return resp["Parameter"]["Value"]
+    except Exception as exc:  # noqa: BLE001
+        print(f"Error loading OPENROUTER_API_KEY from SSM ({param_name}): {exc}")
+        return None
+
+
+OPENROUTER_API_KEY = _load_openrouter_api_key()
 
 # Council members - list of OpenRouter model identifiers
 COUNCIL_MODELS = [

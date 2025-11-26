@@ -41,11 +41,12 @@ class LlmCouncilStack(Stack):
 
         openrouter_param = self.node.try_get_context("openrouterApiKeyParam")
         if openrouter_param:
-            env_vars["OPENROUTER_API_KEY"] = ssm.StringParameter.from_secure_string_parameter_attributes(  # type: ignore[arg-type]
+            env_vars["OPENROUTER_PARAM_NAME"] = openrouter_param
+            ssm.StringParameter.from_secure_string_parameter_attributes(
                 self,
-                "OpenRouterApiKey",
+                "OpenRouterParam",
                 parameter_name=openrouter_param,
-            ).string_value
+            )
 
         lambda_fn = _lambda.Function(
             self,
@@ -77,6 +78,17 @@ class LlmCouncilStack(Stack):
             environment=env_vars,
         )
         table.grant_read_write_data(lambda_fn)
+        if openrouter_param:
+            lambda_fn.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["ssm:GetParameter"],
+                    resources=[
+                        f"arn:aws:ssm:{self.region}:{self.account}:parameter{openrouter_param}"
+                        if openrouter_param.startswith("/")
+                        else f"arn:aws:ssm:{self.region}:{self.account}:parameter/{openrouter_param}"
+                    ],
+                )
+            )
 
         cognito_user_pool_id = self.node.try_get_context("cognitoUserPoolId")
         cognito_user_pool_client_id = self.node.try_get_context("cognitoUserPoolClientId")
