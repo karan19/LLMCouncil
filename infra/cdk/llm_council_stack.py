@@ -86,7 +86,7 @@ class LlmCouncilStack(Stack):
             issuer = f"https://cognito-idp.{self.region}.amazonaws.com/{cognito_user_pool_id}"
             authorizer = apigwv2_auth.HttpJwtAuthorizer(
                 "JwtAuthorizer",
-                issuer=issuer,
+                jwt_issuer=issuer,
                 jwt_audience=[cognito_user_pool_client_id],
             )
 
