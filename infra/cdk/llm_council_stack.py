@@ -102,7 +102,12 @@ class LlmCouncilStack(Stack):
             cors_preflight=apigwv2.CorsPreflightOptions(
                 allow_headers=["*"],
                 allow_methods=[apigwv2.CorsHttpMethod.ANY],
-                allow_origins=["*"],
+                allow_origins=[
+                    "http://localhost:5173",
+                    "http://localhost:5174",
+                    "http://localhost:5175",
+                    "https://aws-native.d17aa5hezcp3mr.amplifyapp.com",
+                ],
                 expose_headers=["*"],
                 max_age=Duration.days(10),
             ),
