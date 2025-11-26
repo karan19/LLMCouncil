@@ -140,6 +140,10 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
 }
 
 .conversation-item:hover {
@@ -160,4 +164,19 @@
 .conversation-meta {
   color: #999;
   font-size: 12px;
+}
+
+.delete-conversation {
+  background: transparent;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.delete-conversation:hover {
+  color: #d11a2a;
+  background: rgba(209, 26, 42, 0.08);
 }

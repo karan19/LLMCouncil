@@ -33,7 +33,7 @@ DEFAULT_HEADERS = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token,X-Api-Key",
-    "Access-Control-Allow-Methods": "OPTIONS,GET,POST",
+    "Access-Control-Allow-Methods": "OPTIONS,GET,POST,DELETE",
 }
 
 
@@ -247,12 +247,19 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
             return await _send_message_stream(conversation_id, body)
         return await _send_message(conversation_id, body)
 
-    if match_conversation and method == "GET":
+    if match_conversation:
         conversation_id = match_conversation.group(1)
-        conversation = storage.get_conversation(conversation_id)
-        if conversation is None:
-            return _response(404, {"error": "Conversation not found"})
-        return _response(200, conversation)
+        if method == "GET":
+            conversation = storage.get_conversation(conversation_id)
+            if conversation is None:
+                return _response(404, {"error": "Conversation not found"})
+            return _response(200, conversation)
+        if method == "DELETE":
+            try:
+                storage.delete_conversation(conversation_id)
+                return _response(204, {"status": "deleted"})
+            except Exception as exc:  # noqa: BLE001
+                return _response(500, {"error": f"Failed to delete: {exc}"})
 
     return _response(404, {"error": "Not Found"})
 

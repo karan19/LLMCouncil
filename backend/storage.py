@@ -121,3 +121,11 @@ def update_conversation_title(conversation_id: str, title: str) -> None:
 
     conversation["title"] = title
     save_conversation(conversation)
+
+
+def delete_conversation(conversation_id: str) -> None:
+    """Delete a conversation by id."""
+    try:
+        _table.delete_item(Key={"id": conversation_id})
+    except ClientError as error:  # noqa: BLE001
+        _handle_client_error(error)

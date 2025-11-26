@@ -6,6 +6,7 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onDeleteConversation,
   availableModels = [],
   selectedModels = [],
   onToggleModel,
@@ -118,6 +119,16 @@ export default function Sidebar({
               <div className="conversation-meta">
                 {conv.message_count} messages
               </div>
+              <button
+                className="delete-conversation"
+                title="Delete conversation"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteConversation && onDeleteConversation(conv.id);
+                }}
+              >
+                ✕
+              </button>
             </div>
           ))
         )}

@@ -123,6 +123,7 @@ class LlmCouncilStack(Stack):
                     apigwv2.CorsHttpMethod.OPTIONS,
                     apigwv2.CorsHttpMethod.GET,
                     apigwv2.CorsHttpMethod.POST,
+                    apigwv2.CorsHttpMethod.DELETE,
                 ],
                 allow_origins=[
                     "http://localhost:5173",
