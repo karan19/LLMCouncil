@@ -350,3 +350,54 @@ async def run_full_council(
     }
 
     return stage1_results, stage2_results, stage3_result, metadata
+
+
+async def run_debate_sequence(
+    topic: str,
+    panel_models: List[str]
+) -> List[Dict[str, Any]]:
+    """
+    Run a sequential debate among the selected models.
+
+    Each panelist receives the topic plus the prior panelists' responses.
+    """
+    turns: List[Dict[str, Any]] = []
+    if not topic:
+        return turns
+
+    previous_statements: List[str] = []
+
+    for idx, model in enumerate(panel_models[:3]):
+        if not model:
+            continue
+
+        role_label = f"Panelist {idx + 1}"
+        system_prompt = (
+            f"You are {role_label} in a structured debate. "
+            f"Your task is to expand on the topic, point out insights, and respond to prior panelists."
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Debate topic: {topic}"},
+        ]
+
+        if previous_statements:
+            messages.append({
+                "role": "user",
+                "content": "Previous statements:\n" + "\n".join(previous_statements),
+            })
+
+        response = await query_model(model, messages)
+        content = response.get("content", "") if response else ""
+
+        turns.append({
+            "model": model,
+            "role": role_label,
+            "response": content,
+        })
+
+        if content:
+            previous_statements.append(f"{role_label} ({model}): {content}")
+
+    return turns

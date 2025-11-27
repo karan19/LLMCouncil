@@ -163,4 +163,26 @@ export const api = {
     onEvent('stage3_complete', { type: 'stage3_complete', data: result.stage3 });
     onEvent('complete', { type: 'complete' });
   },
+
+  /**
+   * Start a structured debate that walks a topic through each panelist.
+   */
+  async startDebate(models, topic) {
+    const response = await fetch(`${API_BASE}/api/debate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({
+        models,
+        topic,
+      }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to start debate');
+    }
+    return response.json();
+  },
 };

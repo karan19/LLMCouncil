@@ -21,6 +21,7 @@ from .config import (
 from .council import (
     calculate_aggregate_rankings,
     generate_conversation_title,
+    run_debate_sequence,
     run_full_council,
     stage1_collect_responses,
     stage2_collect_rankings,
@@ -230,6 +231,17 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
         conversation_id = str(uuid.uuid4())
         conversation = storage.create_conversation(conversation_id)
         return _response(201, conversation)
+
+    if path == "/api/debate" and method == "POST":
+        body = _parse_body(event)
+        topic = (body.get("topic") or "").strip()
+        models = body.get("models") or []
+        if not topic:
+            return _response(400, {"error": "Debate topic is required"})
+        if len(models) < 3 or not all(models[:3]):
+            return _response(400, {"error": "Provide at least three selected models"})
+        turns = await run_debate_sequence(topic, models[:3])
+        return _response(200, {"topic": topic, "turns": turns})
 
     match_message_stream = re.match(r"^/api/conversations/([^/]+)/message/stream$", path)
     match_message = re.match(r"^/api/conversations/([^/]+)/message$", path)

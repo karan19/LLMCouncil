@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import DebateView from './components/DebateView';
 import { api, setAuthToken as setApiAuthToken } from './api';
 import LoginPage from './components/LoginPage';
 import {
@@ -11,6 +12,37 @@ import {
 } from './auth';
 import './App.css';
 
+const VIEW_OPTIONS = [
+  {
+    id: 'agentCouncil',
+    label: 'Agent Council',
+    description: 'Run the three-stage council flow, review every model, and read the final chairman synthesis.',
+    cta: 'Enter Agent Council',
+    enabled: true,
+  },
+  {
+    id: 'debate',
+    label: 'Debate',
+    description: 'Place a topic in the center and let each model take turns speaking around the table.',
+    cta: 'Enter Debate',
+    enabled: true,
+  },
+];
+
+const VIEW_PATHS = {
+  agentCouncil: '/agentcouncil',
+  debate: '/debate',
+};
+
+const getInitialView = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const path = window.location.pathname.toLowerCase().replace(/\/$/, '');
+  const matching = Object.entries(VIEW_PATHS).find(([, p]) => p === path);
+  return matching ? matching[0] : null;
+};
+
 function App() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
@@ -19,7 +51,13 @@ function App() {
   const [availableModels, setAvailableModels] = useState([]);
   const [selectedModels, setSelectedModels] = useState([]);
   const [chairmanModel, setChairmanModel] = useState('');
+  const [debateTurns, setDebateTurns] = useState([]);
+  const [debateTopic, setDebateTopic] = useState('');
+  const [debateLoading, setDebateLoading] = useState(false);
+  const [debateError, setDebateError] = useState('');
   const [authTokens, setAuthTokens] = useState(getStoredTokens());
+  const [selectedView, setSelectedView] = useState(getInitialView);
+  const [panelModels, setPanelModels] = useState(['', '', '']);
 
   // Load auth from hash or storage, then bootstrap data when tokens exist
   useEffect(() => {
@@ -43,6 +81,51 @@ function App() {
       loadConversation(currentConversationId);
     }
   }, [currentConversationId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePopState = () => {
+      const path = window.location.pathname.toLowerCase().replace(/\/$/, '');
+      const matching = Object.entries(VIEW_PATHS).find(([, p]) => p === path);
+      setSelectedView(matching ? matching[0] : null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const targetPath = selectedView ? VIEW_PATHS[selectedView] : '/';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  }, [selectedView]);
+
+  useEffect(() => {
+    if (selectedView !== 'debate') {
+      setDebateTurns([]);
+      setDebateTopic('');
+      setDebateError('');
+    }
+  }, [selectedView]);
+
+  useEffect(() => {
+    if (!availableModels.length) return;
+    setPanelModels((prev) => {
+      if (prev.some(Boolean)) {
+        return prev;
+      }
+      const defaults = availableModels.slice(0, 3);
+      return Array.from({ length: 3 }, (_, idx) => defaults[idx] || '');
+    });
+    setSelectedModels((prev) => {
+      if (prev.length > 0) return prev;
+      return availableModels.slice(0, 3);
+    });
+  }, [availableModels]);
 
   const loadConversations = async () => {
     try {
@@ -242,10 +325,36 @@ function App() {
     }
   };
 
+  const handlePanelModelChange = (index, model) => {
+    setPanelModels((prev) => {
+      const next = [...prev];
+      next[index] = model;
+      setSelectedModels(next.filter(Boolean));
+      return next;
+    });
+    setDebateTurns([]);
+  };
+
+  const handleDebateTopicSubmit = async (topic) => {
+    if (!panelModels.every(Boolean)) return;
+    setDebateLoading(true);
+    setDebateError('');
+    try {
+      const result = await api.startDebate(panelModels, topic);
+      setDebateTurns(result.turns || []);
+      setDebateTopic(result.topic || topic);
+    } catch (err) {
+      setDebateError(err.message || 'Failed to run debate');
+    } finally {
+      setDebateLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     clearTokens();
     setAuthTokens(null);
     setApiAuthToken(null);
+    setSelectedView(null);
   };
 
   if (!authTokens) {
@@ -267,30 +376,70 @@ function App() {
           Sign out
         </button>
       </div>
-      <Sidebar
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
-        onDeleteConversation={handleDeleteConversation}
-        availableModels={availableModels}
-        selectedModels={selectedModels}
-        onToggleModel={(model) => {
-          setSelectedModels((prev) =>
-            prev.includes(model)
-              ? prev.filter((m) => m !== model)
-              : [...prev, model]
-          );
-        }}
-        chairmanModel={chairmanModel}
-        onChairmanChange={setChairmanModel}
-      />
-      <ChatInterface
-        conversation={currentConversation}
-        onSendMessage={handleSendMessage}
-        isLoading={isLoading}
-        canSend={(selectedModels && selectedModels.length > 0) || availableModels.length > 0}
-      />
+      {selectedView === 'agentCouncil' ? (
+        <>
+          <Sidebar
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={handleDeleteConversation}
+            availableModels={availableModels}
+            selectedModels={selectedModels}
+            onToggleModel={(model) => {
+              setSelectedModels((prev) =>
+                prev.includes(model)
+                  ? prev.filter((m) => m !== model)
+                  : [...prev, model]
+              );
+            }}
+            chairmanModel={chairmanModel}
+            onChairmanChange={setChairmanModel}
+          />
+          <div className="main-content">
+            <ChatInterface
+              conversation={currentConversation}
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+              canSend={(selectedModels && selectedModels.length > 0) || availableModels.length > 0}
+            />
+          </div>
+        </>
+      ) : selectedView === 'debate' ? (
+        <DebateView
+          conversation={currentConversation}
+          panelModels={panelModels}
+          availableModels={availableModels}
+          onPanelModelChange={handlePanelModelChange}
+          onSubmitTopic={handleDebateTopicSubmit}
+          onBackToSelection={() => setSelectedView(null)}
+          debateTurns={debateTurns}
+          debateLoading={debateLoading}
+          debateError={debateError}
+          debateTopic={debateTopic}
+        />
+      ) : (
+        <div className="view-selection">
+          <div className="view-selection-inner">
+            {VIEW_OPTIONS.map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                className={`view-pane ${view.enabled ? '' : 'disabled'}`}
+                onClick={() => view.enabled && setSelectedView(view.id)}
+                aria-disabled={!view.enabled}
+                disabled={!view.enabled}
+              >
+                <div className="view-pane-header">
+                  <span className="view-pane-label">{view.label}</span>
+                </div>
+                <p className="view-pane-description">{view.description}</p>
+                <span className="view-pane-cta">{view.cta}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
