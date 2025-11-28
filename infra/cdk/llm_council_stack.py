@@ -131,6 +131,7 @@ class LlmCouncilStack(Stack):
                     "http://localhost:5175",
                     "https://aws-native.d17aa5hezcp3mr.amplifyapp.com",
                     "https://www.multiagent.karankan19.com",
+                    "https://multiagent.karankan19.com",
                 ],
                 expose_headers=[
                     "Authorization",
@@ -143,7 +144,7 @@ class LlmCouncilStack(Stack):
             ),
         )
 
-        # Protect GET/POST with authorizer; leave OPTIONS without authorizer to satisfy CORS preflight
+        # Protect GET/POST/DELETE with authorizer; OPTIONS is handled by cors_preflight automatically
         http_api.add_routes(
             path="/{proxy+}",
             methods=[apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST, apigwv2.HttpMethod.DELETE],
@@ -156,16 +157,7 @@ class LlmCouncilStack(Stack):
             integration=lambda_integration,
             authorizer=authorizer,
         )
-        http_api.add_routes(
-            path="/{proxy+}",
-            methods=[apigwv2.HttpMethod.OPTIONS],
-            integration=lambda_integration,
-        )
-        http_api.add_routes(
-            path="/",
-            methods=[apigwv2.HttpMethod.OPTIONS],
-            integration=lambda_integration,
-        )
+        # Note: OPTIONS routes are NOT needed here - cors_preflight handles them at API Gateway level
 
         lambda_fn.add_permission(
             "AllowHttpApiInvoke",
