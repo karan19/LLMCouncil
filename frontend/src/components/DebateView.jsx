@@ -106,16 +106,18 @@ export default function DebateView({
                       Panelist {index + 1}
                     </label>
                     <Select
-                      value={panelModels[index] || ''}
+                      value={panelModels[index] || '__none__'}
                       onValueChange={(value) =>
-                        onPanelModelChange && onPanelModelChange(index, value)
+                        onPanelModelChange && onPanelModelChange(index, value === '__none__' ? '' : value)
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a model" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="__none__">
+                          <span className="text-muted-foreground">None (empty slot)</span>
+                        </SelectItem>
                         {availableModels.map((model) => (
                           <SelectItem key={model} value={model}>
                             {model}
