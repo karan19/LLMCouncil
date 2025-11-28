@@ -68,16 +68,28 @@ def save_conversation(conversation: Dict[str, Any]) -> None:
 
 def list_conversations(user_id: str) -> List[Dict[str, Any]]:
     """Return conversation metadata for a specific user, sorted newest first."""
+    # Scan with filter for user_id (consider adding a GSI for better performance)
+    scan_kwargs = {
+        "FilterExpression": "user_id = :uid",
+        "ExpressionAttributeValues": {":uid": user_id},
+        "ProjectionExpression": "id, created_at, title, messages, user_id",
+    }
+
+    items: List[Dict[str, Any]] = []
     try:
-        # Scan with filter for user_id (consider adding a GSI for better performance)
-        response = _table.scan(
-            FilterExpression="user_id = :uid",
-            ExpressionAttributeValues={":uid": user_id},
-            ProjectionExpression="id, created_at, title, messages, user_id",
-        )
+        # Handle DynamoDB pagination - scan returns max 1MB per call
+        while True:
+            response = _table.scan(**scan_kwargs)
+            items.extend(response.get("Items", []))
+
+            # Check if there are more pages
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
+            scan_kwargs["ExclusiveStartKey"] = last_key
     except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
-    items = response.get("Items", [])
+
     conversations = []
     for item in items:
         conversations.append(
