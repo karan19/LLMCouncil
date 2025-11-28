@@ -130,6 +130,7 @@ class LlmCouncilStack(Stack):
                     "http://localhost:5174",
                     "http://localhost:5175",
                     "https://aws-native.d17aa5hezcp3mr.amplifyapp.com",
+                    "https://www.multiagent.karankan19.com",
                 ],
                 expose_headers=[
                     "Authorization",
