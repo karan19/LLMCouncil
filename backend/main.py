@@ -40,13 +40,16 @@ DEFAULT_HEADERS = {
 }
 
 
-def _response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+def _response(status_code: int, body: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """Build an API Gateway compatible response with default CORS headers."""
-    return {
+    response = {
         "statusCode": status_code,
         "headers": DEFAULT_HEADERS,
-        "body": json.dumps(body),
     }
+    # HTTP 204 No Content must not include a body
+    if status_code != 204 and body is not None:
+        response["body"] = json.dumps(body)
+    return response
 
 
 def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -320,7 +323,7 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
         if method == "DELETE":
             try:
                 storage.delete_conversation(conversation_id)
-                return _response(204, {"status": "deleted"})
+                return _response(204)
             except Exception as exc:  # noqa: BLE001
                 return _response(500, {"error": f"Failed to delete: {exc}"})
 
