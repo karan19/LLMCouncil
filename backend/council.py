@@ -366,12 +366,14 @@ async def run_debate_sequence(
         return turns
 
     previous_statements: List[str] = []
+    panelist_number = 0  # Track actual panelist count, not array index
 
-    for idx, model in enumerate(panel_models[:3]):
+    for model in panel_models[:3]:
         if not model:
             continue
 
-        role_label = f"Panelist {idx + 1}"
+        panelist_number += 1
+        role_label = f"Panelist {panelist_number}"
         system_prompt = (
             f"You are {role_label} in a structured debate. "
             f"Your task is to expand on the topic, point out insights, and respond to prior panelists."
