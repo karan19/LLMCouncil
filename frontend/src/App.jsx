@@ -56,7 +56,7 @@ function App() {
   const [debateLoading, setDebateLoading] = useState(false);
   const [debateError, setDebateError] = useState('');
   const [authTokens, setAuthTokens] = useState(getStoredTokens());
-  const [selectedView, setSelectedView] = useState(getInitialView);
+  const [selectedView, setSelectedView] = useState(getInitialView());
   const [panelModels, setPanelModels] = useState(['', '', '']);
   const [storedPanelModels, setStoredPanelModels] = useState(['', '', '']);
 

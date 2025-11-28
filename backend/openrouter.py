@@ -21,6 +21,10 @@ async def query_model(
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
+    if not OPENROUTER_API_KEY:
+        print(f"Error querying model {model}: OPENROUTER_API_KEY not configured")
+        return None
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
@@ -84,6 +88,10 @@ async def list_models() -> List[str]:
     Fetch available models from OpenRouter. Returns IDs (e.g., "openai/gpt-4o").
     Falls back to empty list on error.
     """
+    if not OPENROUTER_API_KEY:
+        print("Error listing models: OPENROUTER_API_KEY not configured")
+        return []
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
     }
