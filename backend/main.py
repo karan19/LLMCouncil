@@ -125,9 +125,9 @@ async def _list_models() -> Dict[str, Any]:
     }
 
 
-async def _send_message(conversation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def _send_message(conversation_id: str, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Handle message send flow and return council results."""
-    conversation = storage.get_conversation(conversation_id)
+    conversation = storage.get_conversation_for_user(conversation_id, user_id)
     if conversation is None:
         return _response(404, {"error": "Conversation not found"})
 
@@ -169,12 +169,12 @@ async def _send_message(conversation_id: str, payload: Dict[str, Any]) -> Dict[s
     )
 
 
-async def _send_message_stream(conversation_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def _send_message_stream(conversation_id: str, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Placeholder for streaming; returns staged responses sequentially.
     This keeps the contract but does not use SSE so it fits HTTP APIs.
     """
-    conversation = storage.get_conversation(conversation_id)
+    conversation = storage.get_conversation_for_user(conversation_id, user_id)
     if conversation is None:
         return _response(404, {"error": "Conversation not found"})
 
@@ -249,11 +249,17 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
         return _response(200, models)
 
     if path == "/api/conversations" and method == "GET":
-        return _response(200, storage.list_conversations())
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+        return _response(200, storage.list_conversations(user_id))
 
     if path == "/api/conversations" and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
         conversation_id = str(uuid.uuid4())
-        conversation = storage.create_conversation(conversation_id)
+        conversation = storage.create_conversation(conversation_id, user_id)
         return _response(201, conversation)
 
     if path == "/api/debate" and method == "POST":
@@ -302,27 +308,38 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
     match_conversation = re.match(r"^/api/conversations/([^/]+)$", path)
 
     if match_message_stream and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
         body = _parse_body(event)
         conversation_id = match_message_stream.group(1)
-        return await _send_message_stream(conversation_id, body)
+        return await _send_message_stream(conversation_id, user_id, body)
 
     if match_message and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
         body = _parse_body(event)
         conversation_id = match_message.group(1)
         if query_params.get("stream") == "true":
-            return await _send_message_stream(conversation_id, body)
-        return await _send_message(conversation_id, body)
+            return await _send_message_stream(conversation_id, user_id, body)
+        return await _send_message(conversation_id, user_id, body)
 
     if match_conversation:
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
         conversation_id = match_conversation.group(1)
         if method == "GET":
-            conversation = storage.get_conversation(conversation_id)
+            conversation = storage.get_conversation_for_user(conversation_id, user_id)
             if conversation is None:
                 return _response(404, {"error": "Conversation not found"})
             return _response(200, conversation)
         if method == "DELETE":
             try:
-                storage.delete_conversation(conversation_id)
+                deleted = storage.delete_conversation(conversation_id, user_id)
+                if not deleted:
+                    return _response(404, {"error": "Conversation not found"})
                 return _response(204)
             except Exception as exc:  # noqa: BLE001
                 return _response(500, {"error": f"Failed to delete: {exc}"})

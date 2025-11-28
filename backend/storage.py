@@ -23,10 +23,11 @@ def _handle_client_error(error: ClientError) -> None:
     raise RuntimeError(f"DynamoDB error: {error}") from error
 
 
-def create_conversation(conversation_id: str) -> Dict[str, Any]:
-    """Create a new conversation record."""
+def create_conversation(conversation_id: str, user_id: str) -> Dict[str, Any]:
+    """Create a new conversation record owned by user_id."""
     conversation = {
         "id": conversation_id,
+        "user_id": user_id,
         "created_at": _now_iso(),
         "title": "New Conversation",
         "messages": [],
@@ -47,6 +48,16 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
     return response.get("Item")
 
 
+def get_conversation_for_user(conversation_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+    """Fetch a conversation by id, only if owned by user_id."""
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        return None
+    if conversation.get("user_id") != user_id:
+        return None
+    return conversation
+
+
 def save_conversation(conversation: Dict[str, Any]) -> None:
     """Persist a conversation."""
     try:
@@ -55,10 +66,15 @@ def save_conversation(conversation: Dict[str, Any]) -> None:
         _handle_client_error(error)
 
 
-def list_conversations() -> List[Dict[str, Any]]:
-    """Return all conversation metadata sorted newest first."""
+def list_conversations(user_id: str) -> List[Dict[str, Any]]:
+    """Return conversation metadata for a specific user, sorted newest first."""
     try:
-        response = _table.scan(ProjectionExpression="id, created_at, title, messages")
+        # Scan with filter for user_id (consider adding a GSI for better performance)
+        response = _table.scan(
+            FilterExpression="user_id = :uid",
+            ExpressionAttributeValues={":uid": user_id},
+            ProjectionExpression="id, created_at, title, messages, user_id",
+        )
     except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
     items = response.get("Items", [])
@@ -123,12 +139,18 @@ def update_conversation_title(conversation_id: str, title: str) -> None:
     save_conversation(conversation)
 
 
-def delete_conversation(conversation_id: str) -> None:
-    """Delete a conversation by id."""
+def delete_conversation(conversation_id: str, user_id: str) -> bool:
+    """Delete a conversation by id if owned by user_id. Returns True if deleted."""
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        return False
+    if conversation.get("user_id") != user_id:
+        return False
     try:
         _table.delete_item(Key={"id": conversation_id})
     except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
+    return True
 
 
 def get_user_debate_panel(user_id: str) -> List[str]:
