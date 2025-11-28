@@ -1,200 +1,250 @@
-import { useMemo, useState } from 'react';
-import './DebateView.css';
-
-const speakerPositions = ['top', 'left', 'right'];
-
-const summarize = (text = '') => {
-  const normalized = text.trim();
-  if (!normalized) return 'Awaiting the council’s initial answers.';
-  if (normalized.length <= 140) return normalized;
-  return `${normalized.slice(0, 140)}…`;
-};
-
-const getModelShortName = (model) => {
-  if (!model) return 'Model';
-  const parts = model.split('/');
-  return parts[1] || parts[0];
-};
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
+import {
+  ArrowLeft,
+  Send,
+  Loader2,
+  Users,
+  MessageCircle,
+  Mic,
+  Bot,
+} from 'lucide-react';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { ScrollArea } from './ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { cn } from '../lib/utils';
 
 export default function DebateView({
-  conversation,
-  panelModels = [],
   availableModels = [],
+  panelModels = ['', '', ''],
   onPanelModelChange,
-  onSubmitTopic,
-  onBackToSelection,
   debateTurns = [],
+  debateTopic = '',
+  onDebateTopicChange,
+  onStartDebate,
   debateLoading = false,
   debateError = '',
-  debateTopic = '',
+  onReturn,
 }) {
+  const hasValidPanel = panelModels.some(Boolean);
 
-  const latestUserMessage = useMemo(() => {
-    if (!conversation?.messages) return null;
-    return [...conversation.messages]
-      .reverse()
-      .find((msg) => msg.role === 'user');
-  }, [conversation]);
+  const getModelColor = (index) => {
+    const colors = [
+      'from-blue-500 to-cyan-500',
+      'from-purple-500 to-pink-500',
+      'from-emerald-500 to-teal-500',
+    ];
+    return colors[index % colors.length];
+  };
 
-  const defaultTopic = latestUserMessage?.content?.trim() || conversation?.title || 'New debate topic';
-  const topic = debateTopic || defaultTopic;
-
-  const [topicInput, setTopicInput] = useState('');
-  const panelReady = panelModels.filter(Boolean).length >= 1;
-
-  const speakers = panelModels.map((model, idx) => {
-    const turn = debateTurns[idx];
-    const responseText = turn?.response || '';
-    const hasResponse = Boolean(responseText);
-    const resolvedModel = turn?.model || model;
-    return {
-      id: resolvedModel || `panel-${idx}`,
-      model: resolvedModel || `Panelist ${idx + 1}`,
-      modelShortName: resolvedModel
-        ? getModelShortName(resolvedModel)
-        : `Panelist ${idx + 1}`,
-      response: responseText,
-      summary: hasResponse
-        ? summarize(responseText)
-        : model
-        ? 'Waiting for this panelist to answer the topic.'
-        : 'Panelist not assigned yet.',
-      status: hasResponse ? 'Delivered' : model ? 'Waiting' : 'Pending',
-    };
-  });
-
-  const handleTopicSubmit = () => {
-    const trimmed = topicInput.trim();
-    if (!trimmed || !panelReady) return;
-    onSubmitTopic?.(trimmed);
-    setTopicInput('');
+  const getPositionClass = (index) => {
+    const positions = ['top', 'left', 'right'];
+    return positions[index] || 'top';
   };
 
   return (
-    <div className="debate-view">
-      <div className="debate-view-header">
-        <div>
-          <p className="debate-label">Debate mode</p>
-          <h2>Round-table discussion</h2>
-          <p className="debate-subtitle">
-            Three council members take turns reacting to the current topic.
-          </p>
-        </div>
-        <div className="debate-view-actions">
-          {onBackToSelection ? (
-            <button
-              type="button"
-              className="debate-return-btn"
-              onClick={onBackToSelection}
-            >
-              Back to views
-            </button>
-          ) : null}
-          <span className="debate-topic-pill">Topic driven</span>
-        </div>
-      </div>
-
-      <div className="debate-controls">
-        <div className="debate-panelists">
-          {panelModels.map((model, idx) => (
-            <label key={`panelist-${idx}`} className="panelist-select">
-              <span>Panelist {idx + 1}</span>
-            <select
-              value={model || ''}
-              onChange={(event) => onPanelModelChange?.(idx, event.target.value)}
-            >
-                <option value="">Select a model</option>
-                {model && !availableModels.includes(model) ? (
-                  <option value={model}>{model}</option>
-                ) : null}
-                {availableModels.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
-        <div className="debate-topic-entry">
-          <label htmlFor="debate-topic-textarea" className="topic-entry-label">
-            Enter debate topic
-          </label>
-          <textarea
-            id="debate-topic-textarea"
-            className="debate-topic-textarea"
-            value={topicInput}
-            onChange={(event) => setTopicInput(event.target.value)}
-            placeholder="Describe the topic you'd like the council to debate."
-          />
-          <div className="debate-topic-actions">
-            <button
-              type="button"
-              onClick={handleTopicSubmit}
-              disabled={!panelReady || !topicInput.trim()}
-            >
-              Start debate
-            </button>
-            <span className="debate-topic-note">
-              {panelReady
-                ? 'Each panelist will take turns after submission.'
-                : 'Configure your debate panel models first.'}
-            </span>
-          </div>
-        </div>
-      </div>
-      {debateLoading && (
-        <p className="debate-loading">Running debate turns... please wait.</p>
-      )}
-      {debateError && (
-        <p className="debate-error">{debateError}</p>
-      )}
-
-      <div className="debate-grid">
-        {speakers.map((speaker, idx) => (
-          <div
-            key={speaker.id}
-            className={`debate-speaker-card position-${speakerPositions[idx]}`}
-          >
-            <div className="speaker-card-header">
-              <span className="speaker-name">{speaker.modelShortName}</span>
-              <span className="speaker-status">{speaker.status}</span>
+    <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-cyan-50">
+      {/* Header */}
+      <div className="border-b border-border bg-white/80 backdrop-blur-sm p-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={onReturn}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-600" />
+                <h1 className="text-xl font-bold text-foreground">Debate Mode</h1>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Round-table discussion among AI models
+              </p>
             </div>
-            <p className="speaker-card-turn">Turn {idx + 1}</p>
-            <p className="speaker-card-text">{speaker.summary}</p>
           </div>
-        ))}
-        <div className="debate-topic-card">
-          <p className="topic-label">Central topic</p>
-          <p className="topic-text">{topic}</p>
+          {debateTopic && debateTurns.length > 0 && (
+            <Badge variant="secondary" className="text-sm">
+              <MessageCircle className="w-3 h-3 mr-1" />
+              {debateTurns.length} turns
+            </Badge>
+          )}
         </div>
       </div>
 
-      <div className="debate-turns">
-        {debateTurns.length > 0
-          ? debateTurns.map((turn, idx) => (
-              <div key={`debate-turn-${idx}`} className="debate-turn">
-                <div className="debate-turn-header">
-                  <span className="debate-turn-number">Turn {idx + 1}</span>
-                  <span className="debate-turn-model">
-                    {getModelShortName(turn.model)} ({turn.role})
-                  </span>
-                </div>
-                <p className="debate-turn-text">
-                  {turn.response || 'No response produced.'}
+      <ScrollArea className="flex-1 p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Panel Configuration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Configure Panelists
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[0, 1, 2].map((index) => (
+                  <div key={index} className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <div className={cn(
+                        'w-6 h-6 rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold',
+                        getModelColor(index)
+                      )}>
+                        {index + 1}
+                      </div>
+                      Panelist {index + 1}
+                    </label>
+                    <Select
+                      value={panelModels[index] || ''}
+                      onValueChange={(value) =>
+                        onPanelModelChange && onPanelModelChange(index, value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {availableModels.map((model) => (
+                          <SelectItem key={model} value={model}>
+                            {model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Topic Input */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-primary" />
+                Debate Topic
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                value={debateTopic}
+                onChange={(e) =>
+                  onDebateTopicChange && onDebateTopicChange(e.target.value)
+                }
+                placeholder="Enter a topic for the panelists to discuss..."
+                className="min-h-[120px]"
+                disabled={debateLoading}
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Each panelist will take turns responding to the topic
                 </p>
+                <Button
+                  onClick={onStartDebate}
+                  disabled={!debateTopic.trim() || !hasValidPanel || debateLoading}
+                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  {debateLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Debating...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Start Debate
+                    </>
+                  )}
+                </Button>
               </div>
-            ))
-          : speakers.map((speaker, idx) => (
-              <div key={`${speaker.id}-turn`} className="debate-turn">
-                <div className="debate-turn-header">
-                  <span className="debate-turn-number">Turn {idx + 1}</span>
-                  <span className="debate-turn-model">{speaker.modelShortName}</span>
-                </div>
-                <p className="debate-turn-text">{speaker.summary}</p>
+              {debateError && (
+                <p className="text-sm text-destructive">{debateError}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Debate Results */}
+          {debateTurns.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Mic className="w-5 h-5 text-primary" />
+                Debate Transcript
+              </h2>
+
+              {/* Topic Card */}
+              <Card className="bg-gradient-to-r from-slate-900 to-slate-800 text-white border-0 shadow-xl">
+                <CardContent className="p-6">
+                  <p className="text-xs uppercase tracking-widest text-slate-400 mb-2">
+                    Topic
+                  </p>
+                  <p className="text-xl font-medium">{debateTopic}</p>
+                </CardContent>
+              </Card>
+
+              {/* Speaker Cards */}
+              <div className="grid gap-4">
+                <AnimatePresence mode="popLayout">
+                  {debateTurns.map((turn, index) => (
+                    <motion.div
+                      key={`${turn.model}-${index}`}
+                      initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <Card className="overflow-hidden">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-10 h-10">
+                                <AvatarFallback
+                                  className={cn(
+                                    'bg-gradient-to-br text-white',
+                                    getModelColor(index)
+                                  )}
+                                >
+                                  <Bot className="w-5 h-5" />
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <CardTitle className="text-sm font-medium">
+                                  {turn.role}
+                                </CardTitle>
+                                <p className="text-xs text-muted-foreground">
+                                  {turn.model}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant="secondary">
+                              Turn {index + 1}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="markdown-content">
+                            <ReactMarkdown>{turn.response}</ReactMarkdown>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
-            ))}
-      </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
