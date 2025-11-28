@@ -40,7 +40,7 @@ export default function DebateView({
   const topic = debateTopic || defaultTopic;
 
   const [topicInput, setTopicInput] = useState('');
-  const panelReady = panelModels.filter(Boolean).length === 3;
+  const panelReady = panelModels.filter(Boolean).length >= 1;
 
   const speakers = panelModels.map((model, idx) => {
     const turn = debateTurns[idx];
@@ -138,7 +138,7 @@ export default function DebateView({
             <span className="debate-topic-note">
               {panelReady
                 ? 'Each panelist will take turns after submission.'
-                : 'Pick three panelists to begin.'}
+                : 'Configure your debate panel models first.'}
             </span>
           </div>
         </div>

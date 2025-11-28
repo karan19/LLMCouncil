@@ -7,7 +7,9 @@ import base64
 import json
 import re
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
+
+import jwt
 
 from . import storage
 from .config import (
@@ -58,6 +60,23 @@ def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
         return json.loads(raw) if raw else {}
     except json.JSONDecodeError:
         return {}
+
+
+def _extract_user_id(event: Dict[str, Any]) -> Optional[str]:
+    """Extract user ID from JWT token in Authorization header."""
+    headers = event.get("headers", {})
+    auth_header = headers.get("Authorization") or headers.get("authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+
+    token = auth_header[7:]  # Remove "Bearer " prefix
+
+    try:
+        # Decode JWT payload without verification (API Gateway already verified it)
+        payload = jwt.decode(token, options={"verify_signature": False})
+        return payload.get("sub")  # Cognito user ID
+    except jwt.InvalidTokenError:
+        return None
 
 
 async def _list_models() -> Dict[str, Any]:
@@ -214,6 +233,8 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
     path = event.get("rawPath") or http.get("path") or ""
     query_params = event.get("queryStringParameters") or {}
 
+    print(f"DEBUG: Routing request - method: {method}, path: {path}")
+
     if method == "OPTIONS":
         return _response(200, {"status": "ok"})
 
@@ -233,15 +254,45 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
         return _response(201, conversation)
 
     if path == "/api/debate" and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+
         body = _parse_body(event)
         topic = (body.get("topic") or "").strip()
-        models = body.get("models") or []
         if not topic:
             return _response(400, {"error": "Debate topic is required"})
-        if len(models) < 3 or not all(models[:3]):
-            return _response(400, {"error": "Provide at least three selected models"})
-        turns = await run_debate_sequence(topic, models[:3])
+
+        # Get user's stored debate panel models
+        panel_models = storage.get_user_debate_panel(user_id)
+        valid_models = [m for m in panel_models if m]  # Filter out empty strings
+
+        if len(valid_models) < 1:
+            return _response(400, {"error": "No debate panel models configured. Please set up your debate panel first."})
+
+        turns = await run_debate_sequence(topic, valid_models)
         return _response(200, {"topic": topic, "turns": turns})
+
+    if path == "/api/debate/panel" and method == "GET":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+
+        panel_models = storage.get_user_debate_panel(user_id)
+        return _response(200, {"panel_models": panel_models})
+
+    if path == "/api/debate/panel" and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+
+        body = _parse_body(event)
+        panel_models = body.get("panel_models", [])
+        if not isinstance(panel_models, list) or len(panel_models) != 3:
+            return _response(400, {"error": "panel_models must be an array of exactly 3 strings"})
+
+        storage.save_user_debate_panel(user_id, panel_models)
+        return _response(200, {"status": "saved", "panel_models": panel_models})
 
     match_message_stream = re.match(r"^/api/conversations/([^/]+)/message/stream$", path)
     match_message = re.match(r"^/api/conversations/([^/]+)/message$", path)

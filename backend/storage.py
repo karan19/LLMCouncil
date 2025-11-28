@@ -129,3 +129,28 @@ def delete_conversation(conversation_id: str) -> None:
         _table.delete_item(Key={"id": conversation_id})
     except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
+
+
+def get_user_debate_panel(user_id: str) -> List[str]:
+    """Get user's debate panel models."""
+    try:
+        response = _table.get_item(Key={"id": f"user_panel_{user_id}"})
+    except ClientError as error:  # noqa: BLE001
+        _handle_client_error(error)
+    item = response.get("Item")
+    if item:
+        return item.get("panel_models", ["", "", ""])
+    return ["", "", ""]
+
+
+def save_user_debate_panel(user_id: str, panel_models: List[str]) -> None:
+    """Save user's debate panel models."""
+    item = {
+        "id": f"user_panel_{user_id}",
+        "panel_models": panel_models,
+        "updated_at": _now_iso(),
+    }
+    try:
+        _table.put_item(Item=item)
+    except ClientError as error:  # noqa: BLE001
+        _handle_client_error(error)

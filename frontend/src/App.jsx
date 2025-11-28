@@ -58,6 +58,7 @@ function App() {
   const [authTokens, setAuthTokens] = useState(getStoredTokens());
   const [selectedView, setSelectedView] = useState(getInitialView);
   const [panelModels, setPanelModels] = useState(['', '', '']);
+  const [storedPanelModels, setStoredPanelModels] = useState(['', '', '']);
 
   // Load auth from hash or storage, then bootstrap data when tokens exist
   useEffect(() => {
@@ -72,6 +73,7 @@ function App() {
       setApiAuthToken(authTokens.idToken);
       loadConversations();
       loadModels();
+      loadDebatePanel();
     }
   }, [authTokens]);
 
@@ -156,6 +158,28 @@ function App() {
       setAvailableModels([]);
       setSelectedModels([]);
       setChairmanModel('');
+    }
+  };
+
+  const loadDebatePanel = async () => {
+    try {
+      const res = await api.getDebatePanel();
+      const panelModels = res.panel_models || ['', '', ''];
+      setStoredPanelModels(panelModels);
+      setPanelModels(panelModels);
+    } catch (error) {
+      console.error('Failed to load debate panel:', error);
+      setStoredPanelModels(['', '', '']);
+      setPanelModels(['', '', '']);
+    }
+  };
+
+  const saveDebatePanel = async (panelModels) => {
+    try {
+      await api.saveDebatePanel(panelModels);
+      setStoredPanelModels(panelModels);
+    } catch (error) {
+      console.error('Failed to save debate panel:', error);
     }
   };
 
@@ -325,22 +349,28 @@ function App() {
     }
   };
 
-  const handlePanelModelChange = (index, model) => {
-    setPanelModels((prev) => {
-      const next = [...prev];
-      next[index] = model;
-      setSelectedModels(next.filter(Boolean));
-      return next;
-    });
+  const handlePanelModelChange = async (index, model) => {
+    const newPanelModels = [...panelModels];
+    newPanelModels[index] = model;
+    setPanelModels(newPanelModels);
+    setSelectedModels(newPanelModels.filter(Boolean));
     setDebateTurns([]);
+
+    // Save to backend
+    await saveDebatePanel(newPanelModels);
   };
 
   const handleDebateTopicSubmit = async (topic) => {
-    if (!panelModels.every(Boolean)) return;
+    // Check if we have stored panel models configured
+    if (!storedPanelModels.some(Boolean)) {
+      setDebateError('Please configure your debate panel models first.');
+      return;
+    }
+
     setDebateLoading(true);
     setDebateError('');
     try {
-      const result = await api.startDebate(panelModels, topic);
+      const result = await api.startDebate(topic);
       setDebateTurns(result.turns || []);
       setDebateTopic(result.topic || topic);
     } catch (err) {

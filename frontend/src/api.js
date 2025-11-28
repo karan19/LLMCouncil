@@ -167,7 +167,7 @@ export const api = {
   /**
    * Start a structured debate that walks a topic through each panelist.
    */
-  async startDebate(models, topic) {
+  async startDebate(topic) {
     const response = await fetch(`${API_BASE}/api/debate`, {
       method: 'POST',
       headers: {
@@ -175,13 +175,47 @@ export const api = {
         ...authHeaders(),
       },
       body: JSON.stringify({
-        models,
         topic,
       }),
     });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(errorText || 'Failed to start debate');
+    }
+    return response.json();
+  },
+
+  /**
+   * Get user's debate panel configuration.
+   */
+  async getDebatePanel() {
+    const response = await fetch(`${API_BASE}/api/debate/panel`, {
+      headers: {
+        ...authHeaders(),
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to get debate panel');
+    }
+    return response.json();
+  },
+
+  /**
+   * Save user's debate panel configuration.
+   */
+  async saveDebatePanel(panelModels) {
+    const response = await fetch(`${API_BASE}/api/debate/panel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      },
+      body: JSON.stringify({
+        panel_models: panelModels,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to save debate panel');
     }
     return response.json();
   },
