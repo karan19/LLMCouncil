@@ -353,7 +353,6 @@ function App() {
     const newPanelModels = [...panelModels];
     newPanelModels[index] = model;
     setPanelModels(newPanelModels);
-    setSelectedModels(newPanelModels.filter(Boolean));
     setDebateTurns([]);
 
     // Save to backend
