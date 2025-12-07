@@ -45,11 +45,11 @@ export default function Stage2({ stage2, labelToModel }: Stage2Props) {
 
             <div className="grid gap-4">
                 {stage2.map((review, index) => {
-                    const reviewerModel = labelToModel?.[review.reviewer] || review.reviewer;
+                    const reviewerModel = review.model;
 
                     return (
                         <motion.div
-                            key={`${review.reviewer}-${index}`}
+                            key={`${review.model}-${index}`}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
@@ -65,7 +65,7 @@ export default function Stage2({ stage2, labelToModel }: Stage2Props) {
                                             </Avatar>
                                             <div>
                                                 <CardTitle className="text-sm font-medium">
-                                                    {review.reviewer}
+                                                    {review.model}
                                                 </CardTitle>
                                                 <p className="text-xs text-muted-foreground truncate max-w-[200px]">
                                                     {reviewerModel}
@@ -73,10 +73,10 @@ export default function Stage2({ stage2, labelToModel }: Stage2Props) {
                                             </div>
                                         </div>
 
-                                        {Array.isArray(review.ranking) && review.ranking.length > 0 && (
+                                        {Array.isArray(review.parsed_ranking) && review.parsed_ranking.length > 0 && (
                                             <div className="flex items-center gap-1 flex-wrap">
                                                 <span className="text-xs text-muted-foreground mr-1">Ranking:</span>
-                                                {review.ranking.map((label: string, i: number) => (
+                                                {review.parsed_ranking.map((label: string, i: number) => (
                                                     <div key={label} className="flex items-center">
                                                         <Badge
                                                             variant={i === 0 ? 'default' : 'secondary'}
@@ -84,7 +84,7 @@ export default function Stage2({ stage2, labelToModel }: Stage2Props) {
                                                         >
                                                             {i + 1}. {label}
                                                         </Badge>
-                                                        {i < review.ranking.length - 1 && (
+                                                        {i < review.parsed_ranking.length - 1 && (
                                                             <ArrowRight className="w-3 h-3 text-muted-foreground mx-0.5" />
                                                         )}
                                                     </div>
@@ -95,7 +95,7 @@ export default function Stage2({ stage2, labelToModel }: Stage2Props) {
                                 </CardHeader>
                                 <CardContent className="pt-0">
                                     <div className="markdown-content text-sm prose prose-slate max-w-none dark:prose-invert">
-                                        <ReactMarkdown>{review.critique}</ReactMarkdown>
+                                        <ReactMarkdown>{review.ranking || review.critique}</ReactMarkdown>
                                     </div>
                                 </CardContent>
                             </Card>

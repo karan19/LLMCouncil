@@ -195,7 +195,10 @@ function UserMessage({ content }: { content: string }) {
 }
 
 function AssistantMessage({ message }: { message: Message }) {
-    const { stage1, stage2, stage3, label_to_model, aggregate_rankings } = message;
+    const { stage1, stage2, stage3 } = message;
+    // Extract from both direct properties and metadata for compatibility
+    const label_to_model = (message as any).label_to_model || (message as any).metadata?.label_to_model;
+    const aggregate_rankings = (message as any).aggregate_rankings || (message as any).metadata?.aggregate_rankings;
 
     return (
         <div className="flex gap-3">

@@ -11,7 +11,10 @@ interface Stage3Props {
 }
 
 export default function Stage3({ stage3 }: Stage3Props) {
-    if (!stage3 || !stage3.content) {
+    // Handle both 'response' (from backend) and 'content' (legacy/alternative) formats
+    const content = stage3?.response || stage3?.content;
+
+    if (!stage3 || !content) {
         return (
             <div className="text-center py-8 text-muted-foreground">
                 No synthesis available
@@ -37,7 +40,7 @@ export default function Stage3({ stage3 }: Stage3Props) {
                                     Chairman's Synthesis
                                 </CardTitle>
                                 <p className="text-xs text-amber-700">
-                                    Final consolidated response
+                                    {stage3?.model ? `by ${stage3.model}` : 'Final consolidated response'}
                                 </p>
                             </div>
                         </div>
@@ -49,7 +52,7 @@ export default function Stage3({ stage3 }: Stage3Props) {
                 </CardHeader>
                 <CardContent className="pt-0">
                     <div className="markdown-content text-amber-950 prose prose-amber max-w-none dark:prose-invert">
-                        <ReactMarkdown>{stage3.content}</ReactMarkdown>
+                        <ReactMarkdown>{content}</ReactMarkdown>
                     </div>
                 </CardContent>
             </Card>

@@ -183,9 +183,9 @@ export default function Sidebar({
                 )}
             </div>
 
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
                 {!isCollapsed && (
-                    <>
+                    <div className="min-h-0">
                         {/* Model Selection Panel */}
                         <div className="p-3 border-b border-slate-100">
                             <Collapsible open={modelsExpanded} onOpenChange={setModelsExpanded}>
@@ -364,7 +364,7 @@ export default function Sidebar({
                                 </div>
                             )}
                         </div>
-                    </>
+                    </div>
                 )}
 
                 {/* Collapsed state - show icons only */}
@@ -396,7 +396,7 @@ export default function Sidebar({
                         </div>
                     </div>
                 )}
-            </ScrollArea>
+            </div>
 
 
 

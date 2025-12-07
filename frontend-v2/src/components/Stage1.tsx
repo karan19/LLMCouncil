@@ -23,9 +23,9 @@ export default function Stage1({ stage1, labelToModel, aggregateRankings }: Stag
         );
     }
 
-    const getRankBadge = (label: string) => {
-        if (!aggregateRankings) return null;
-        const ranking = aggregateRankings.find((r) => r.label === label);
+    const getRankBadge = (model: string) => {
+        if (!aggregateRankings || !Array.isArray(aggregateRankings)) return null;
+        const ranking = aggregateRankings.find((r) => r.model === model);
         if (!ranking) return null;
 
         const position = aggregateRankings.indexOf(ranking) + 1;
@@ -36,11 +36,12 @@ export default function Stage1({ stage1, labelToModel, aggregateRankings }: Stag
         };
 
         const variant = variants[position] || { className: 'bg-slate-200 text-slate-700', icon: `#${position}` };
+        const avgRank = ranking.average_rank || ranking.avg_rank;
 
         return (
             <Badge className={cn('gap-1', variant.className)}>
                 <span>{variant.icon}</span>
-                <span className="text-xs">Avg: {ranking.avg_rank.toFixed(2)}</span>
+                <span className="text-xs">Avg: {avgRank?.toFixed(2) || 'N/A'}</span>
             </Badge>
         );
     };
@@ -68,11 +69,11 @@ export default function Stage1({ stage1, labelToModel, aggregateRankings }: Stag
 
             <div className="grid gap-4">
                 {stage1.map((opinion, index) => {
-                    const modelName = labelToModel?.[opinion.label] || opinion.label;
+                    const modelName = opinion.model;
 
                     return (
                         <motion.div
-                            key={opinion.label}
+                            key={opinion.model}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
@@ -88,19 +89,19 @@ export default function Stage1({ stage1, labelToModel, aggregateRankings }: Stag
                                             </Avatar>
                                             <div>
                                                 <CardTitle className="text-sm font-medium">
-                                                    {opinion.label}
+                                                    {opinion.model}
                                                 </CardTitle>
                                                 <p className="text-xs text-muted-foreground truncate max-w-[200px]">
                                                     {modelName}
                                                 </p>
                                             </div>
                                         </div>
-                                        {getRankBadge(opinion.label)}
+                                        {getRankBadge(opinion.model)}
                                     </div>
                                 </CardHeader>
                                 <CardContent className="pt-0">
                                     <div className="markdown-content text-sm prose prose-slate max-w-none dark:prose-invert">
-                                        <ReactMarkdown>{opinion.content}</ReactMarkdown>
+                                        <ReactMarkdown>{opinion.response || opinion.content}</ReactMarkdown>
                                     </div>
                                 </CardContent>
                             </Card>
