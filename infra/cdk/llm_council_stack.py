@@ -48,6 +48,15 @@ class LlmCouncilStack(Stack):
                 parameter_name=openrouter_param,
             )
 
+        cognito_user_pool_id = self.node.try_get_context("cognitoUserPoolId")
+        cognito_user_pool_client_id = self.node.try_get_context("cognitoUserPoolClientId")
+
+        # Pass Cognito config to Lambda for JWT verification (needed for Function URL)
+        if cognito_user_pool_id:
+            env_vars["COGNITO_USER_POOL_ID"] = cognito_user_pool_id
+        if cognito_user_pool_client_id:
+            env_vars["COGNITO_CLIENT_ID"] = cognito_user_pool_client_id
+
         lambda_fn = _lambda.Function(
             self,
             "ApiHandler",
@@ -77,6 +86,17 @@ class LlmCouncilStack(Stack):
             memory_size=512,
             environment=env_vars,
         )
+
+        # Add Function URL for long-running requests (bypasses API Gateway 30s timeout)
+        fn_url = lambda_fn.add_function_url(
+            auth_type=_lambda.FunctionUrlAuthType.NONE,  # Auth handled in code via JWT
+            cors=_lambda.FunctionUrlCorsOptions(
+                allowed_origins=["*"],
+                allowed_methods=[_lambda.HttpMethod.ALL],
+                allowed_headers=["Content-Type", "Authorization"],
+            ),
+        )
+
         table.grant_read_write_data(lambda_fn)
         if openrouter_param:
             lambda_fn.add_to_role_policy(
@@ -89,9 +109,6 @@ class LlmCouncilStack(Stack):
                     ],
                 )
             )
-
-        cognito_user_pool_id = self.node.try_get_context("cognitoUserPoolId")
-        cognito_user_pool_client_id = self.node.try_get_context("cognitoUserPoolClientId")
         authorizer: Optional[apigwv2.IHttpRouteAuthorizer] = None
 
         if cognito_user_pool_id and cognito_user_pool_client_id:
@@ -169,4 +186,5 @@ class LlmCouncilStack(Stack):
         )
 
         cdk.CfnOutput(self, "HttpApiUrl", value=http_api.api_endpoint)
+        cdk.CfnOutput(self, "FunctionUrl", value=fn_url.url)
         cdk.CfnOutput(self, "ConversationsTableName", value=table.table_name)

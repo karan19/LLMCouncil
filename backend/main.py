@@ -65,8 +65,38 @@ def _parse_body(event: Dict[str, Any]) -> Dict[str, Any]:
         return {}
 
 
+import os
+import httpx
+from jwt.algorithms import RSAAlgorithm
+
+# Global cache for JWKS (persists across Lambda invocations in warm containers)
+_JWKS_CACHE: Dict[str, Any] | None = None
+
+
+def _get_cognito_jwks(user_pool_id: str, region: str) -> Dict[str, Any]:
+    """Fetch and cache Cognito JWKS (JSON Web Key Set)."""
+    global _JWKS_CACHE
+    if _JWKS_CACHE is not None:
+        return _JWKS_CACHE
+
+    url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        _JWKS_CACHE = resp.json()
+        return _JWKS_CACHE
+    except Exception as e:
+        print(f"Failed to fetch JWKS from {url}: {e}")
+        return {"keys": []}
+
+
 def _extract_user_id(event: Dict[str, Any]) -> Optional[str]:
-    """Extract user ID from JWT token in Authorization header."""
+    """
+    Extract user ID from JWT token in Authorization header.
+    
+    If COGNITO_USER_POOL_ID is set, performs full signature verification.
+    Otherwise, trusts API Gateway's prior verification (unverified decode).
+    """
     headers = event.get("headers", {})
     auth_header = headers.get("Authorization") or headers.get("authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
@@ -74,12 +104,54 @@ def _extract_user_id(event: Dict[str, Any]) -> Optional[str]:
 
     token = auth_header[7:]  # Remove "Bearer " prefix
 
-    try:
-        # Decode JWT payload without verification (API Gateway already verified it)
-        payload = jwt.decode(token, options={"verify_signature": False})
-        return payload.get("sub")  # Cognito user ID
-    except jwt.InvalidTokenError:
-        return None
+    # Check if we should verify signatures (Function URL mode)
+    user_pool_id = os.environ.get("COGNITO_USER_POOL_ID")
+    aws_region = os.environ.get("AWS_REGION", "us-west-2")
+
+    if user_pool_id:
+        # Full verification mode (for Function URL access)
+        try:
+            # Get key ID from token header
+            unverified_header = jwt.get_unverified_header(token)
+            kid = unverified_header.get("kid")
+
+            # Fetch JWKS and find matching key
+            jwks = _get_cognito_jwks(user_pool_id, aws_region)
+            public_key = None
+            for key in jwks.get("keys", []):
+                if key.get("kid") == kid:
+                    public_key = RSAAlgorithm.from_jwk(json.dumps(key))
+                    break
+
+            if not public_key:
+                print(f"No matching key found for kid: {kid}")
+                return None
+
+            # Verify signature and decode
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=["RS256"],
+                options={"verify_aud": False}  # Cognito uses client_id claim, not aud
+            )
+            return payload.get("sub")
+
+        except jwt.ExpiredSignatureError:
+            print("Token has expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            print(f"Invalid token: {e}")
+            return None
+        except Exception as e:
+            print(f"Token verification error: {e}")
+            return None
+    else:
+        # Trust API Gateway's verification (unverified decode)
+        try:
+            payload = jwt.decode(token, options={"verify_signature": False})
+            return payload.get("sub")
+        except jwt.InvalidTokenError:
+            return None
 
 
 async def _list_models() -> Dict[str, Any]:
