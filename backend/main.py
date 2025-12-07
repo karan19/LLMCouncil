@@ -41,6 +41,15 @@ DEFAULT_HEADERS = {
 }
 
 
+from decimal import Decimal
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return int(obj) if obj % 1 == 0 else float(obj)
+        return super(DecimalEncoder, self).default(obj)
+
+
 def _response(status_code: int, body: Dict[str, Any] | None = None) -> Dict[str, Any]:
     """Build an API Gateway compatible response."""
     response = {
@@ -49,7 +58,7 @@ def _response(status_code: int, body: Dict[str, Any] | None = None) -> Dict[str,
     }
     # HTTP 204 No Content must not include a body
     if status_code != 204 and body is not None:
-        response["body"] = json.dumps(body)
+        response["body"] = json.dumps(body, cls=DecimalEncoder)
     return response
 
 
