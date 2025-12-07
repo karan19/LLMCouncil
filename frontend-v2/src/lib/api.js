@@ -201,6 +201,29 @@ export const api = {
     },
 
     /**
+     * Run a single debate turn.
+     */
+    async runDebateTurn(topic, history, targetModel, systemPrompt) {
+        const response = await fetch(`${API_BASE}/api/debate/turn`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...authHeaders(),
+            },
+            body: JSON.stringify({
+                topic,
+                history,
+                target_model: targetModel,
+                system_prompt: systemPrompt,
+            }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to run debate turn');
+        }
+        return response.json();
+    },
+
+    /**
      * Get user's debate panel configuration.
      */
     async getDebatePanel() {

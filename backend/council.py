@@ -403,3 +403,52 @@ async def run_debate_sequence(
             previous_statements.append(f"{role_label} ({model}): {content}")
 
     return turns
+
+
+async def run_single_debate_turn(
+    topic: str,
+    history: List[Dict[str, Any]],
+    target_model: str,
+    system_prompt: str | None = None
+) -> Dict[str, Any]:
+    """
+    Run a single turn for a specific model in the debate.
+    
+    Args:
+        topic: The central debate topic
+        history: List of previous turns (dict with 'role', 'model', 'response')
+        target_model: The model to generate the response
+        system_prompt: Optional custom persona/instruction
+    
+    Returns:
+        Dict with 'response' content
+    """
+    if not system_prompt:
+        system_prompt = (
+            "You are a panelist in a structured debate. "
+            "Your task is to expand on the topic, point out insights, and respond to prior panelists."
+        )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"Debate topic: {topic}"},
+    ]
+
+    # Add history context
+    if history:
+        history_text = "\n\n".join([
+            f"{turn.get('role', 'Panelist')}: {turn.get('response', '')}" 
+            for turn in history
+        ])
+        messages.append({
+            "role": "user",
+            "content": f"Previous debate transcript:\n{history_text}\n\nPlease provide your perspective, addressing the topic and previous points."
+        })
+
+    response = await query_model(target_model, messages)
+    content = response.get("content", "") if response else "Failed to generate response."
+
+    return {
+        "model": target_model,
+        "response": content,
+    }

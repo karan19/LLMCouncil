@@ -69,10 +69,19 @@ class LlmCouncilStack(Stack):
                 
                 project_root = Path(__file__).parent.parent.parent
                 
-                # Install dependencies
+                # Install dependencies for Linux 
                 subprocess.run(
-                    ["pip", "install", "-r", str(project_root / "backend" / "requirements.txt"), 
-                     "-t", output_dir, "--quiet"],
+                    [
+                        "pip", "install", 
+                        "-r", str(project_root / "backend" / "requirements.txt"),
+                        "-t", output_dir, 
+                        "--platform", "manylinux2014_x86_64",
+                        "--implementation", "cp",
+                        "--python-version", "3.12",
+                        "--only-binary=:all:",
+                        "--upgrade",
+                        "--quiet"
+                    ],
                     check=True
                 )
                 

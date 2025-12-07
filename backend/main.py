@@ -20,6 +20,7 @@ from .config import (
     EXCLUDED_MODELS,
     OPENROUTER_API_KEY,
 )
+# Force redeploy for dependency fix
 from .council import (
     calculate_aggregate_rankings,
     generate_conversation_title,
@@ -352,6 +353,28 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
 
         turns = await run_debate_sequence(topic, valid_models)
         return _response(200, {"topic": topic, "turns": turns})
+
+    if path == "/api/debate/turn" and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+
+        body = _parse_body(event)
+        topic = body.get("topic")
+        target_model = body.get("target_model")
+        history = body.get("history", [])
+        system_prompt = body.get("system_prompt")
+
+        if not topic or not target_model:
+            return _response(400, {"error": "Topic and target_model are required"})
+
+        result = await run_single_debate_turn(
+            topic=topic,
+            history=history,
+            target_model=target_model,
+            system_prompt=system_prompt
+        )
+        return _response(200, result)
 
     if path == "/api/debate/panel" and method == "GET":
         user_id = _extract_user_id(event)

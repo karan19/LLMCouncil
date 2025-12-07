@@ -8,6 +8,7 @@ import ViewSelector from '@/components/ViewSelector';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import ChatInterface from '@/components/ChatInterface';
+import DebateView from '@/components/DebateView';
 import {
   getStoredTokens,
   storeTokens,
@@ -29,6 +30,14 @@ export default function Home() {
   const [chairmanModel, setChairmanModel] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Debate state
+  const [debateTurns, setDebateTurns] = useState<any[]>([]);
+  const [debateTopic, setDebateTopic] = useState('');
+  const [debateLoading, setDebateLoading] = useState(false);
+  const [debateError, setDebateError] = useState('');
+  const [panelModels, setPanelModels] = useState<string[]>(['', '', '']);
+  const [storedPanelModels, setStoredPanelModels] = useState<string[]>(['', '', '']);
+
   // Check for stored tokens on client mount
   useEffect(() => {
     const storedTokens = getStoredTokens();
@@ -43,7 +52,10 @@ export default function Home() {
     if (authTokens) {
       loadModels();
       loadConversations();
+      loadModels();
+      loadConversations();
       loadSavedPreferences();
+      loadDebatePanel();
     }
   }, [authTokens]);
 
@@ -127,6 +139,57 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Failed to load saved preferences:', error);
+    }
+  };
+
+  const loadDebatePanel = async () => {
+    try {
+      const res = await api.getDebatePanel();
+      const loadedPanel = res.panel_models || ['', '', ''];
+      setStoredPanelModels(loadedPanel);
+      setPanelModels(loadedPanel);
+    } catch (error) {
+      console.error('Failed to load debate panel:', error);
+    }
+  };
+
+  const saveDebatePanel = async (newPanelModels: string[]) => {
+    try {
+      await api.saveDebatePanel(newPanelModels);
+      setStoredPanelModels(newPanelModels);
+    } catch (error) {
+      console.error('Failed to save debate panel:', error);
+    }
+  };
+
+  const handlePanelModelChange = async (index: number, model: string) => {
+    const newPanelModels = [...panelModels];
+    newPanelModels[index] = model;
+    setPanelModels(newPanelModels);
+    setDebateTurns([]);
+
+    // Save to backend
+    await saveDebatePanel(newPanelModels);
+  };
+
+  const handleDebateTopicSubmit = async () => {
+    // Check if we have stored panel models configured
+    const hasValidPanel = panelModels.some(Boolean);
+    if (!hasValidPanel) {
+      setDebateError('Please configure your debate panel models first.');
+      return;
+    }
+
+    setDebateLoading(true);
+    setDebateError('');
+    try {
+      const result = await api.startDebate(debateTopic);
+      setDebateTurns(result.turns || []);
+      if (result.topic) setDebateTopic(result.topic);
+    } catch (err: any) {
+      setDebateError(err.message || 'Failed to run debate');
+    } finally {
+      setDebateLoading(false);
     }
   };
 
@@ -349,12 +412,18 @@ export default function Home() {
               />
             </div>
           ) : selectedView === 'debate' ? (
-            <div className="flex items-center justify-center h-full bg-slate-50">
-              <div className="text-center space-y-4">
-                <h1 className="text-2xl font-bold text-slate-900">Debate Mode</h1>
-                <p className="text-slate-500">Coming soon...</p>
-              </div>
-            </div>
+            <DebateView
+              panelModels={panelModels}
+              availableModels={availableModels}
+              onPanelModelChange={handlePanelModelChange}
+              debateTurns={debateTurns}
+              debateTopic={debateTopic}
+              onDebateTopicChange={setDebateTopic}
+              onStartDebate={handleDebateTopicSubmit}
+              debateLoading={debateLoading}
+              debateError={debateError}
+              onReturn={() => setSelectedView(null)}
+            />
           ) : (
             <ViewSelector onSelectView={setSelectedView} />
           )}
