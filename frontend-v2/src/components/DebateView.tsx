@@ -145,6 +145,10 @@ export default function DebateView() {
                 systemPrompt: systemPrompt
             });
 
+            if (response.response === "Failed to generate response.") {
+                throw new Error("Backend failed to generate response");
+            }
+
             // Replace temp turn with real one
             setTurns(prev => prev.map(t => {
                 if (t.id === tempId) {
@@ -213,6 +217,10 @@ export default function DebateView() {
                 history: history,
                 systemPrompt: systemPrompt
             });
+
+            if (response.response === "Failed to generate response.") {
+                throw new Error("Backend failed to generate response");
+            }
 
             // Update with new content
             setTurns(prev => prev.map((t, i) => {
