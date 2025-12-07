@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, ArrowRight, Play, Pause, RotateCcw, Settings2 } from 'lucide-react';
+import { Send, ArrowRight, Play, Pause, RotateCcw, Settings2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,37 @@ interface Turn {
     content: string;
     timestamp: number;
     systemPrompt?: string;
+    isLoading?: boolean;
+    agentId?: string;
+    model?: string;
+}
+
+const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+";
+
+function HackerText() {
+    const [text, setText] = useState('');
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        const generate = () => {
+            let str = '';
+            const len = Math.floor(Math.random() * 30) + 20; // Random length between 20-50
+            for (let i = 0; i < len; i++) {
+                str += CHARS[Math.floor(Math.random() * CHARS.length)];
+            }
+            // Add some "code-like" structure occasionally
+            if (Math.random() > 0.7) str = `function ${str}() { return; }`;
+            else if (Math.random() > 0.7) str = `<${str} />`;
+
+            setText(str);
+        };
+
+        generate(); // Initial
+        interval = setInterval(generate, 80); // Fast update
+        return () => clearInterval(interval);
+    }, []);
+
+    return <span className="font-mono text-green-500 break-all">{text}</span>;
 }
 
 export default function DebateView() {
@@ -78,17 +109,30 @@ export default function DebateView() {
     const generateTurn = async (seatIndex: number) => {
         setIsGenerating(true);
 
-        try {
-            // Get the agent for this seat
-            const agentId = participants[seatIndex];
-            const agent = availableAgents.find(a => a.id === agentId);
-            const agentName = agent?.name || 'Unknown Agent';
-            const agentModel = agent?.model || 'google/gemini-2.0-flash-exp'; // Default fallback
-            const systemPrompt = agent?.systemPrompt || '';
+        // optimistically add a "loading" turn
+        const tempId = Date.now().toString();
+        const agentId = participants[seatIndex];
+        const agent = availableAgents.find(a => a.id === agentId);
+        const agentName = agent?.name || 'Unknown Agent';
+        const agentModel = agent?.model || 'google/gemini-2.0-flash-exp';
+        const systemPrompt = agent?.systemPrompt || '';
 
+        const tempTurn: Turn = {
+            id: tempId,
+            agentName: agentName,
+            content: '',
+            timestamp: Date.now(),
+            systemPrompt: systemPrompt,
+            isLoading: true,
+            agentId: agentId,
+            model: agentModel
+        };
+
+        setTurns(prev => [...prev, tempTurn]);
+
+        try {
             // Construct history for the backend
             // Backend expects: { role, response }
-            // Frontend generic Turn: { agentName, content }
             const history = turns.map(t => ({
                 role: t.agentName,
                 response: t.content
@@ -101,19 +145,27 @@ export default function DebateView() {
                 systemPrompt: systemPrompt
             });
 
-            const newTurn: Turn = {
-                id: Date.now().toString(),
-                agentName: agentName, // We use the configured name, not what the model returns (which might be generic)
-                content: response.response,
-                timestamp: Date.now(),
-                systemPrompt: systemPrompt
-            };
+            // Replace temp turn with real one
+            setTurns(prev => prev.map(t => {
+                if (t.id === tempId) {
+                    return {
+                        ...t,
+                        content: response.response,
+                        isLoading: false,
+                        timestamp: Date.now(), // Update timestamp to actual completion
+                        agentId: agentId,
+                        model: agentModel
+                    };
+                }
+                return t;
+            }));
 
-            setTurns(prev => [...prev, newTurn]);
             setCurrentAgentIndex((prev) => (prev + 1) % participants.length);
         } catch (error) {
             console.error("Debate turn failed:", error);
             toast.error("Failed to generate response. Check API configuration.");
+            // Remove temp turn on error
+            setTurns(prev => prev.filter(t => t.id !== tempId));
         } finally {
             setIsGenerating(false);
         }
@@ -121,6 +173,69 @@ export default function DebateView() {
 
     const handleNextTurn = () => {
         generateTurn(currentAgentIndex);
+    };
+
+    const handleRegenerate = async (turnIndex: number) => {
+        if (isGenerating) return;
+
+        setIsGenerating(true);
+
+        // Get the turn to regenerate before modifying the turns array
+        const turnToRegen = turns[turnIndex];
+
+        // Truncate the turns list to just this one (and previous ones)
+        // Effectively removing all "future" turns
+        setTurns(prev => {
+            const newTurns = prev.slice(0, turnIndex + 1);
+            // Set the target turn to loading
+            newTurns[turnIndex] = { ...newTurns[turnIndex], isLoading: true, content: '' };
+            return newTurns;
+        });
+
+        // Reset the current agent index to be the one AFTER this turn
+        setCurrentAgentIndex((turnIndex + 1) % participants.length);
+
+        try {
+            // History should be everything BEFORE this turn
+            // Note: We use 'turns' from closure, but we know we just truncated state. 
+            // The API call needs the stable previous history.
+            const history = turns.slice(0, turnIndex).map(t => ({
+                role: t.agentName,
+                response: t.content
+            }));
+
+            const agentModel = turnToRegen.model || 'google/gemini-2.0-flash-exp';
+            const systemPrompt = turnToRegen.systemPrompt || '';
+
+            const response = await api.runDebateTurn({
+                topic: topic,
+                targetModel: agentModel,
+                history: history,
+                systemPrompt: systemPrompt
+            });
+
+            // Update with new content
+            setTurns(prev => prev.map((t, i) => {
+                if (i === turnIndex) {
+                    return {
+                        ...t,
+                        content: response.response,
+                        isLoading: false,
+                        timestamp: Date.now()
+                    };
+                }
+                return t;
+            }));
+
+        } catch (error) {
+            console.error("Regeneration failed:", error);
+            toast.error("Failed to regenerate response.");
+            setTurns(prev => prev.map((t, i) =>
+                i === turnIndex ? { ...t, isLoading: false } : t
+            ));
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const handleReset = () => {
@@ -275,7 +390,7 @@ export default function DebateView() {
                                                 <div className="w-4 h-4 rounded-full bg-blue-500 ring-4 ring-blue-100 transition-all group-hover:ring-blue-200" />
 
                                                 {/* Card */}
-                                                <Card className="w-80 shadow-md hover:shadow-xl transition-shadow border-slate-200 mt-4">
+                                                <Card className="w-[500px] shadow-md hover:shadow-xl transition-shadow border-slate-200 mt-4">
                                                     <CardHeader className="pb-3 flex flex-row items-center gap-3 space-y-0">
                                                         <Avatar className="h-8 w-8">
                                                             <AvatarFallback>{turn.agentName[0]}</AvatarFallback>
@@ -287,14 +402,34 @@ export default function DebateView() {
                                                             </div>
                                                         </div>
                                                     </CardHeader>
-                                                    <CardContent className="text-sm text-slate-600 leading-relaxed max-h-60 overflow-y-auto">
-                                                        <ReactMarkdown
-                                                            remarkPlugins={[remarkGfm]}
-                                                            className="prose prose-sm max-w-none prose-p:my-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-li:my-0"
-                                                        >
-                                                            {turn.content}
-                                                        </ReactMarkdown>
+                                                    <CardContent className="text-sm text-slate-600 leading-relaxed max-h-80 overflow-y-auto">
+                                                        {turn.isLoading ? (
+                                                            <div className="h-20 flex items-center justify-center">
+                                                                <HackerText />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="prose prose-sm max-w-none prose-p:my-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-li:my-0">
+                                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                                    {turn.content}
+                                                                </ReactMarkdown>
+                                                            </div>
+                                                        )}
                                                     </CardContent>
+
+                                                    {/* Card Actions */}
+                                                    {!turn.isLoading && !isGenerating && (
+                                                        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                                                                onClick={() => handleRegenerate(index)}
+                                                                title="Regenerate this response"
+                                                            >
+                                                                <RefreshCw className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </Card>
 
                                                 <div className="text-xs text-slate-400 mt-2">
@@ -329,16 +464,18 @@ export default function DebateView() {
                         </div>
                     )}
                 </AnimatePresence>
-            </div>
+            </div >
 
             {/* Footer Control Bar (Optional) */}
-            {isDebating && !isGenerating && (
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
-                    <Button size="lg" className="shadow-lg rounded-full px-8" onClick={handleNextTurn}>
-                        Next Agent Response <ArrowRight className="ml-2 w-4 h-4" />
-                    </Button>
-                </div>
-            )}
-        </div>
+            {
+                isDebating && !isGenerating && (
+                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
+                        <Button size="lg" className="shadow-lg rounded-full px-8" onClick={handleNextTurn}>
+                            Next Agent Response <ArrowRight className="ml-2 w-4 h-4" />
+                        </Button>
+                    </div>
+                )
+            }
+        </div >
     );
 }
