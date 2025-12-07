@@ -212,4 +212,27 @@ export const api = {
         }
         return response.json();
     },
+
+    /**
+     * Run a single debate turn.
+     */
+    async runDebateTurn({ topic, targetModel, history, systemPrompt }) {
+        const response = await fetch(`${API_BASE}/api/debate/turn`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...authHeaders(),
+            },
+            body: JSON.stringify({
+                topic,
+                target_model: targetModel,
+                history,
+                system_prompt: systemPrompt,
+            }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to generate debate turn');
+        }
+        return response.json();
+    },
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Sparkles, Users, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, MessageSquareDashed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,13 @@ const VIEW_OPTIONS = [
         icon: Sparkles,
         description: 'Run the three-stage council flow, review every model, and read the final chairman synthesis.',
         cta: 'Enter Agent Council',
+    },
+    {
+        id: 'debate',
+        label: 'Debate Mode',
+        icon: MessageSquareDashed,
+        description: 'Start a topic and watch agents debate it in a horizontal timeline view.',
+        cta: 'Enter Debate',
     },
 
 ];

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import LoginPage from '@/components/LoginPage';
 import ViewSelector from '@/components/ViewSelector';
+import DebateView from '@/components/DebateView';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import ChatInterface from '@/components/ChatInterface';
@@ -357,6 +358,8 @@ export default function Home() {
               />
             </div>
 
+          ) : selectedView === 'debate' ? ( // Handle Debate View
+            <DebateView />
           ) : (
             <ViewSelector onSelectView={setSelectedView} />
           )}

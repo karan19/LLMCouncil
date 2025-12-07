@@ -133,7 +133,7 @@ class LlmCouncilStack(Stack):
             cors=_lambda.FunctionUrlCorsOptions(
                 allowed_origins=[
                     "https://www.multiagent.karankan19.com",
-                    "https://multiagent.karankan19.com", 
+                    "https://multiagent.karankan19.com",
                     "http://localhost:3000",
                     "http://localhost:3001",
                 ],
