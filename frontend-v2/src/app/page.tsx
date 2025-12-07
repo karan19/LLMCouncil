@@ -43,6 +43,7 @@ export default function Home() {
     if (authTokens) {
       loadModels();
       loadConversations();
+      loadSavedPreferences();
     }
   }, [authTokens]);
 
@@ -118,12 +119,35 @@ export default function Home() {
     }
   };
 
+  const loadSavedPreferences = async () => {
+    try {
+      const res = await api.getSavedCouncilModels();
+      if (res.models && Array.isArray(res.models) && res.models.length > 0) {
+        setSelectedModels(res.models);
+      }
+    } catch (error) {
+      console.error('Failed to load saved preferences:', error);
+    }
+  };
+
   const handleToggleModel = (model: string) => {
-    setSelectedModels((prev) =>
-      prev.includes(model)
-        ? prev.filter((m) => m !== model)
-        : [...prev, model]
-    );
+    let newModels;
+    if (selectedModels.includes(model)) {
+      newModels = selectedModels.filter((m) => m !== model);
+    } else {
+      if (selectedModels.length >= 5) {
+        toast.error("limit of 5 models reached");
+        return;
+      }
+      newModels = [...selectedModels, model];
+    }
+
+    setSelectedModels(newModels);
+
+    // Save to backend
+    api.saveCouncilModels(newModels).catch(err => {
+      console.error("Failed to save models preference", err);
+    });
   };
 
   const handleSendMessage = async (content: string) => {

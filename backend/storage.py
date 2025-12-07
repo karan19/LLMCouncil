@@ -188,3 +188,26 @@ def save_user_debate_panel(user_id: str, panel_models: List[str]) -> None:
         _table.put_item(Item=item)
     except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
+
+def get_user_council_models(user_id: str) -> List[str]:
+    """Get the list of selected council models for this user."""
+    try:
+        response = _table.get_item(Key={"id": f"user_council_{user_id}"})
+        return response.get("Item", {}).get("models", [])
+    except ClientError as error:  # noqa: BLE001
+        _handle_client_error(error)
+    return []
+
+
+def save_user_council_models(user_id: str, models: List[str]) -> None:
+    """Save the list of selected council models for this user."""
+    try:
+        _table.put_item(
+            Item={
+                "id": f"user_council_{user_id}",
+                "models": models,
+                "updated_at": _now_iso(),
+            }
+        )
+    except ClientError as error:  # noqa: BLE001
+        _handle_client_error(error)

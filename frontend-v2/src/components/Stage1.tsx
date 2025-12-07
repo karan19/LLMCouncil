@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Bot, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -101,7 +102,7 @@ export default function Stage1({ stage1, labelToModel, aggregateRankings }: Stag
                                 </CardHeader>
                                 <CardContent className="pt-0">
                                     <div className="markdown-content text-sm prose prose-slate max-w-none dark:prose-invert">
-                                        <ReactMarkdown>{opinion.response || opinion.content}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{opinion.response || opinion.content}</ReactMarkdown>
                                     </div>
                                 </CardContent>
                             </Card>

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Send, Loader2, User, Bot, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -85,9 +86,9 @@ export default function ChatInterface({
     }
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-slate-50">
+        <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
             {/* Messages Area */}
-            <ScrollArea className="flex-1 p-6">
+            <div className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-4xl mx-auto space-y-8">
                     <AnimatePresence mode="popLayout">
                         {conversation.messages.map((message, index) => (
@@ -129,7 +130,7 @@ export default function ChatInterface({
 
                     <div ref={messagesEndRef} />
                 </div>
-            </ScrollArea>
+            </div>
 
             {/* Input Area */}
             <div className="border-t border-slate-200 bg-white p-4">
@@ -181,7 +182,7 @@ function UserMessage({ content }: { content: string }) {
                 </div>
                 <Card className="p-4 bg-slate-900 text-white border-0 shadow-md">
                     <div className="markdown-content text-white prose prose-invert max-w-none text-sm leading-relaxed">
-                        <ReactMarkdown>{content}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                     </div>
                 </Card>
             </div>
@@ -241,7 +242,7 @@ function AssistantMessage({ message }: { message: Message }) {
                             </TabsList>
                         </div>
 
-                        <div className="p-4 bg-slate-50/30 min-h-[100px]">
+                        <div className="p-4 bg-slate-50/30 min-h-[100px] max-h-[60vh] overflow-y-auto">
                             <TabsContent value="opinions" className="m-0 focus-visible:outline-none">
                                 <Stage1
                                     stage1={stage1}

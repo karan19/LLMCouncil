@@ -205,6 +205,27 @@ export default function Sidebar({
                                 </CollapsibleTrigger>
 
                                 <CollapsibleContent>
+                                    {selectedModels.length > 0 && (
+                                        <div className="px-2 pt-2 pb-1">
+                                            <div className="text-[10px] font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Active Council ({selectedModels.length}/5)</div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {selectedModels.map(m => (
+                                                    <div key={m} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2 py-1 rounded text-xs text-slate-700">
+                                                        <span>{m.split('/').pop()}</span>
+                                                        <div
+                                                            className="cursor-pointer hover:text-red-500"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onToggleModel(m);
+                                                            }}
+                                                        >
+                                                            ×
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="mt-2 space-y-1">
                                         {availableModels.length === 0 ? (
                                             <p className="text-xs text-slate-400 p-2">Loading models...</p>

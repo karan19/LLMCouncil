@@ -234,4 +234,38 @@ export const api = {
         }
         return response.json();
     },
+    /**
+     * Get saved council models.
+     */
+    async getSavedCouncilModels() {
+        const response = await fetch(`${API_BASE}/api/settings/models`, {
+            headers: {
+                ...authHeaders(),
+            },
+        });
+        if (!response.ok) {
+            throw new Error('Failed to get saved council models');
+        }
+        return response.json();
+    },
+
+    /**
+     * Save council models.
+     */
+    async saveCouncilModels(models) {
+        const response = await fetch(`${API_BASE}/api/settings/models`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...authHeaders(),
+            },
+            body: JSON.stringify({
+                models,
+            }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to save council models');
+        }
+        return response.json();
+    },
 };

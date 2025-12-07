@@ -374,6 +374,24 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
         storage.save_user_debate_panel(user_id, panel_models)
         return _response(200, {"status": "saved", "panel_models": panel_models})
 
+    if path == "/api/settings/models" and method == "GET":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+        models = storage.get_user_council_models(user_id)
+        return _response(200, {"models": models})
+
+    if path == "/api/settings/models" and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+        body = _parse_body(event)
+        models = body.get("models", [])
+        if not isinstance(models, list):
+            return _response(400, {"error": "models must be a list"})
+        storage.save_user_council_models(user_id, models)
+        return _response(200, {"status": "saved", "models": models})
+
     match_message_stream = re.match(r"^/api/conversations/([^/]+)/message/stream$", path)
     match_message = re.match(r"^/api/conversations/([^/]+)/message$", path)
     match_conversation = re.match(r"^/api/conversations/([^/]+)$", path)
