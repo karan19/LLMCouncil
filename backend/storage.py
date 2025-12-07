@@ -215,7 +215,6 @@ def save_user_council_models(user_id: str, models: List[str]) -> None:
             }
         )
     except ClientError as error:  # noqa: BLE001
-    except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
 
 
