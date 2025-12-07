@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
+import jsii
 import aws_cdk as cdk
 from aws_cdk import (
     Duration,
@@ -27,7 +28,8 @@ class LlmCouncilStack(Stack):
 
         table = dynamodb.Table(
             self,
-            "ConversationsTable",
+            "Table",
+            table_name="LLMCouncilConversations",
             partition_key=dynamodb.Attribute(
                 name="id", type=dynamodb.AttributeType.STRING
             ),
@@ -44,7 +46,7 @@ class LlmCouncilStack(Stack):
             env_vars["OPENROUTER_PARAM_NAME"] = openrouter_param
             ssm.StringParameter.from_secure_string_parameter_attributes(
                 self,
-                "OpenRouterParam",
+                "ApiKeyParam",
                 parameter_name=openrouter_param,
             )
 
@@ -57,9 +59,35 @@ class LlmCouncilStack(Stack):
         if cognito_user_pool_client_id:
             env_vars["COGNITO_CLIENT_ID"] = cognito_user_pool_client_id
 
+        # Custom local bundler for when Docker is not available
+        @jsii.implements(cdk.ILocalBundling)
+        class LocalBundler:
+            def try_bundle(self, output_dir: str, *, image, command, **kwargs) -> bool:
+                import subprocess
+                import shutil
+                from pathlib import Path
+                
+                project_root = Path(__file__).parent.parent.parent
+                
+                # Install dependencies
+                subprocess.run(
+                    ["pip", "install", "-r", str(project_root / "backend" / "requirements.txt"), 
+                     "-t", output_dir, "--quiet"],
+                    check=True
+                )
+                
+                # Copy backend code
+                shutil.copytree(
+                    project_root / "backend",
+                    Path(output_dir) / "backend",
+                    dirs_exist_ok=True
+                )
+                return True
+
         lambda_fn = _lambda.Function(
             self,
-            "ApiHandler",
+            "Handler",
+            function_name="LLMCouncilApi",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="backend.main.lambda_handler",
             code=_lambda.Code.from_asset(
@@ -72,10 +100,13 @@ class LlmCouncilStack(Stack):
                         "pip install -r backend/requirements.txt -t /asset-output "
                         "&& cp -r backend /asset-output/backend",
                     ],
+                    local=LocalBundler(),  # Use local bundling when Docker unavailable
                 ),
                 exclude=[
                     "infra/cdk/*",
                     "frontend/node_modules/*",
+                    "frontend-v2/node_modules/*",
+                    "frontend-v2/.next/*",
                     "data/*",
                     ".git/*",
                     "cdk.out/*",
@@ -114,20 +145,21 @@ class LlmCouncilStack(Stack):
         if cognito_user_pool_id and cognito_user_pool_client_id:
             issuer = f"https://cognito-idp.{self.region}.amazonaws.com/{cognito_user_pool_id}"
             authorizer = apigwv2_auth.HttpJwtAuthorizer(
-                "JwtAuthorizer",
+                "Authorizer",
                 jwt_issuer=issuer,
                 jwt_audience=[cognito_user_pool_client_id],
             )
 
         lambda_integration = apigwv2_integrations.HttpLambdaIntegration(
-            "LambdaIntegration",
+            "Integration",
             handler=lambda_fn,
             payload_format_version=apigwv2.PayloadFormatVersion.VERSION_2_0,
         )
 
         http_api = apigwv2.HttpApi(
             self,
-            "CouncilHttpApi",
+            "Api",
+            api_name="LLMCouncilApi",
             cors_preflight=apigwv2.CorsPreflightOptions(
                 allow_headers=[
                     "Authorization",

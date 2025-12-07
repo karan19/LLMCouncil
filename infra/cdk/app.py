@@ -8,13 +8,17 @@ from llm_council_stack import LlmCouncilStack
 
 app = cdk.App()
 
-LlmCouncilStack(
+stack = LlmCouncilStack(
     app,
-    "LlmCouncilStack",
+    "LLMCouncil",
     env=cdk.Environment(
         account=os.getenv("CDK_DEFAULT_ACCOUNT"),
         region=os.getenv("CDK_DEFAULT_REGION"),
     ),
 )
+
+# Add tags to all resources in the stack
+cdk.Tags.of(stack).add("Project", "MultiAgent")
+cdk.Tags.of(stack).add("Environment", "Production")
 
 app.synth()
