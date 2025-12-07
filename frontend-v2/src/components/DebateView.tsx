@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, ArrowRight, Play, Pause, RotateCcw, Settings2, RefreshCw } from 'lucide-react';
+import { Send, ArrowRight, Play, Pause, RotateCcw, Settings2, RefreshCw, Save, History, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import AgentConfigDialog, { AgentProfile } from './AgentConfigDialog';
+import SavedDebatesDialog from './SavedDebatesDialog';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -67,6 +68,7 @@ export default function DebateView() {
 
     // Agent Config State
     const [isConfigOpen, setIsConfigOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [availableAgents, setAvailableAgents] = useState<AgentProfile[]>([]);
 
     // Selected Seats (3 slots for now)
@@ -253,6 +255,51 @@ export default function DebateView() {
         setCurrentAgentIndex(0);
     };
 
+    const handleSaveDebate = async () => {
+        if (!turns.length) return;
+
+        const toastId = toast.loading("Saving debate...");
+        try {
+            await api.saveDebate({
+                topic: topic,
+                turns: turns
+            });
+            toast.success("Debate saved successfully", { id: toastId });
+        } catch (error) {
+            console.error("Save failed:", error);
+            toast.error("Failed to save debate", { id: toastId });
+        }
+    };
+
+    const handleLoadDebate = (debate: any) => {
+        try {
+            setTopic(debate.title || '');
+            // debate.messages is the array of turns
+            const loadedTurns = debate.messages || [];
+            setTurns(loadedTurns);
+
+            // Try to infer participants from the loaded turns
+            // This ensures we can continue the debate with the original agents
+            const usedAgentIds = Array.from(new Set(loadedTurns.map((t: any) => t.agentId).filter(Boolean))) as string[];
+            if (usedAgentIds.length > 0) {
+                // Pad with empty strings if < 3
+                const newParticipants = [...usedAgentIds];
+                while (newParticipants.length < 3) newParticipants.push('');
+                setParticipants(newParticipants.slice(0, 3));
+            }
+
+            // Set index to next after last turn
+            setCurrentAgentIndex(loadedTurns.length % 3); // simple modulo fallback
+
+            // If turns exist, we are debating
+            setIsDebating(true);
+
+        } catch (error) {
+            console.error("Error parsing loaded debate", error);
+            toast.error("Error loading debate state");
+        }
+    };
+
     return (
         <div className="h-full w-full relative overflow-hidden bg-slate-50 flex flex-col">
 
@@ -275,6 +322,16 @@ export default function DebateView() {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsHistoryOpen(true)}>
+                        <History className="w-4 h-4 mr-2" />
+                        History
+                    </Button>
+                    {isDebating && (
+                        <Button variant="outline" size="sm" onClick={handleSaveDebate}>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setIsConfigOpen(true)}>
                         <Settings2 className="w-4 h-4 mr-2" />
                         Configure Agents
@@ -292,6 +349,12 @@ export default function DebateView() {
                 open={isConfigOpen}
                 onOpenChange={setIsConfigOpen}
                 onAgentsChange={setAvailableAgents}
+            />
+
+            <SavedDebatesDialog
+                open={isHistoryOpen}
+                onOpenChange={setIsHistoryOpen}
+                onSelectDebate={handleLoadDebate}
             />
 
             {/* Main Content Area */}

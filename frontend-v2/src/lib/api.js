@@ -235,4 +235,55 @@ export const api = {
         }
         return response.json();
     },
+
+    /**
+     * Save a debate session.
+     */
+    async saveDebate({ topic, turns }) {
+        const response = await fetch(`${API_BASE}/api/debate/history`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...authHeaders(),
+            },
+            body: JSON.stringify({
+                topic,
+                turns,
+            }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to save debate');
+        }
+        return response.json();
+    },
+
+    /**
+     * Get debate history.
+     */
+    async getDebateHistory() {
+        const response = await fetch(`${API_BASE}/api/debate/history`, {
+            headers: {
+                ...authHeaders(),
+            },
+        });
+        if (!response.ok) {
+            throw new Error('Failed to get debate history');
+        }
+        return response.json();
+    },
+
+    /**
+     * Get specific debate.
+     */
+    async getDebate(id) {
+        const response = await fetch(`${API_BASE}/api/debate/history/${id}`, {
+            headers: {
+                ...authHeaders(),
+            },
+        });
+        if (!response.ok) {
+            throw new Error('Failed to load debate');
+        }
+        return response.json();
+    },
 };

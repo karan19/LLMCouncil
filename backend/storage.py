@@ -30,6 +30,8 @@ def create_conversation(conversation_id: str, user_id: str) -> Dict[str, Any]:
         "user_id": user_id,
         "created_at": _now_iso(),
         "title": "New Conversation",
+        "title": "New Conversation",
+        "type": "council",
         "messages": [],
     }
     try:
@@ -72,7 +74,9 @@ def list_conversations(user_id: str) -> List[Dict[str, Any]]:
     scan_kwargs = {
         "FilterExpression": "user_id = :uid",
         "ExpressionAttributeValues": {":uid": user_id},
-        "ProjectionExpression": "id, created_at, title, messages, user_id",
+        "ExpressionAttributeValues": {":uid": user_id},
+        "ProjectionExpression": "id, created_at, title, messages, user_id, #tp",
+        "ExpressionAttributeNames": {"#tp": "type"},
     }
 
     items: List[Dict[str, Any]] = []
@@ -97,6 +101,7 @@ def list_conversations(user_id: str) -> List[Dict[str, Any]]:
                 "id": item["id"],
                 "created_at": item.get("created_at", ""),
                 "title": item.get("title", "New Conversation"),
+                "type": item.get("type", "council"),
                 "message_count": len(item.get("messages", [])),
             }
         )
@@ -210,4 +215,27 @@ def save_user_council_models(user_id: str, models: List[str]) -> None:
             }
         )
     except ClientError as error:  # noqa: BLE001
+    except ClientError as error:  # noqa: BLE001
         _handle_client_error(error)
+
+
+def save_debate_session(
+    conversation_id: str,
+    user_id: str,
+    title: str,
+    turns: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Save a debate session."""
+    conversation = {
+        "id": conversation_id,
+        "user_id": user_id,
+        "created_at": _now_iso(),
+        "title": title,
+        "type": "debate",
+        "messages": turns,  # Reuse messages field for turns
+    }
+    try:
+        _table.put_item(Item=conversation)
+    except ClientError as error:  # noqa: BLE001
+        _handle_client_error(error)
+    return conversation

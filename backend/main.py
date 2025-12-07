@@ -377,6 +377,45 @@ async def _route(event: Dict[str, Any]) -> Dict[str, Any]:
         )
         return _response(200, result)
 
+    if path == "/api/debate/history" and method == "POST":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+
+        body = _parse_body(event)
+        topic = body.get("topic")
+        turns = body.get("turns", [])
+        
+        if not topic:
+             return _response(400, {"error": "Topic is required"})
+
+        conversation_id = str(uuid.uuid4())
+        saved = storage.save_debate_session(conversation_id, user_id, topic, turns)
+        return _response(201, saved)
+
+    if path == "/api/debate/history" and method == "GET":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+
+        # Get all conversations and filter for type="debate"
+        all_convos = storage.list_conversations(user_id)
+        debates = [c for c in all_convos if c.get("type") == "debate"]
+        return _response(200, {"debates": debates})
+
+    match_debate_history = re.match(r"^/api/debate/history/([^/]+)$", path)
+    if match_debate_history and method == "GET":
+        user_id = _extract_user_id(event)
+        if not user_id:
+            return _response(401, {"error": "Authentication required"})
+        
+        debate_id = match_debate_history.group(1)
+        conversation = storage.get_conversation_for_user(debate_id, user_id)
+        if not conversation:
+            return _response(404, {"error": "Debate not found"})
+        
+        return _response(200, conversation)
+
     if path == "/api/debate/panel" and method == "GET":
         user_id = _extract_user_id(event)
         if not user_id:
