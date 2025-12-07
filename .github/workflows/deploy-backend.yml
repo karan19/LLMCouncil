@@ -40,7 +40,7 @@ jobs:
       - name: CDK deploy
         working-directory: infra/cdk
         run: |
-          cdk deploy LlmCouncilStack --require-approval never \
+          cdk deploy LLMCouncil --require-approval never \
             -c cognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} \
             -c cognitoUserPoolClientId=${{ secrets.COGNITO_USER_POOL_CLIENT_ID }} \
             -c openrouterApiKeyParam=${{ secrets.OPENROUTER_PARAM_NAME }}
