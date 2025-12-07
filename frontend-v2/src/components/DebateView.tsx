@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, ArrowRight, Play, Pause, RotateCcw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -234,12 +236,12 @@ export default function DebateView() {
                         </motion.div>
                     ) : (
                         // Timeline View
-                        <div className="flex flex-col items-center w-full h-full justify-center">
+                        <div className="flex flex-col items-start w-full h-full overflow-hidden">
 
                             {/* Horizontal Scrolling Timeline */}
                             <div
                                 ref={scrollContainerRef}
-                                className="w-full flex items-center overflow-x-auto px-10 py-10 scrollbar-hide snap-x"
+                                className="w-full flex-1 flex items-center overflow-x-auto px-10 py-10 scrollbar-hide snap-x"
                                 style={{ scrollBehavior: 'smooth' }}
                             >
                                 <div className="flex items-start gap-8 min-w-max px-20">
@@ -285,8 +287,13 @@ export default function DebateView() {
                                                             </div>
                                                         </div>
                                                     </CardHeader>
-                                                    <CardContent className="text-sm text-slate-600 leading-relaxed">
-                                                        {turn.content}
+                                                    <CardContent className="text-sm text-slate-600 leading-relaxed max-h-60 overflow-y-auto">
+                                                        <ReactMarkdown
+                                                            remarkPlugins={[remarkGfm]}
+                                                            className="prose prose-sm max-w-none prose-p:my-1 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-1 prose-li:my-0"
+                                                        >
+                                                            {turn.content}
+                                                        </ReactMarkdown>
                                                     </CardContent>
                                                 </Card>
 
