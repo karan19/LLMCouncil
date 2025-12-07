@@ -73,7 +73,7 @@ export default function Stage2({ stage2, labelToModel }: Stage2Props) {
                                             </div>
                                         </div>
 
-                                        {review.ranking && review.ranking.length > 0 && (
+                                        {Array.isArray(review.ranking) && review.ranking.length > 0 && (
                                             <div className="flex items-center gap-1 flex-wrap">
                                                 <span className="text-xs text-muted-foreground mr-1">Ranking:</span>
                                                 {review.ranking.map((label: string, i: number) => (

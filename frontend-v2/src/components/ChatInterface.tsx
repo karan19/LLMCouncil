@@ -207,16 +207,9 @@ function AssistantMessage({ message }: { message: Message }) {
             <div className="flex-1 space-y-1">
                 <span className="text-xs text-slate-400 pl-1">Council</span>
                 <Card className="flex-1 p-0 overflow-hidden shadow-sm border-slate-200/60 bg-white">
-                    <Tabs defaultValue="synthesis" className="w-full">
+                    <Tabs defaultValue="opinions" className="w-full">
                         <div className="border-b border-slate-100 bg-slate-50/50 px-4 pt-4">
                             <TabsList className="w-full justify-start bg-transparent h-auto p-0 gap-6">
-                                <TabsTrigger
-                                    value="synthesis"
-                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-slate-900 text-slate-500 rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 px-0 pb-3 font-medium transition-colors hover:text-slate-700"
-                                >
-                                    <Sparkles className="w-3.5 h-3.5 mr-2" />
-                                    Synthesis
-                                </TabsTrigger>
                                 <TabsTrigger
                                     value="opinions"
                                     className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-slate-900 text-slate-500 rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 px-0 pb-3 font-medium transition-colors hover:text-slate-700"
@@ -235,13 +228,17 @@ function AssistantMessage({ message }: { message: Message }) {
                                         {stage2?.length || 0}
                                     </Badge>
                                 </TabsTrigger>
+                                <TabsTrigger
+                                    value="synthesis"
+                                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-slate-900 text-slate-500 rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 px-0 pb-3 font-medium transition-colors hover:text-slate-700"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                    Synthesis
+                                </TabsTrigger>
                             </TabsList>
                         </div>
 
                         <div className="p-4 bg-slate-50/30 min-h-[100px]">
-                            <TabsContent value="synthesis" className="m-0 focus-visible:outline-none">
-                                <Stage3 stage3={stage3} />
-                            </TabsContent>
                             <TabsContent value="opinions" className="m-0 focus-visible:outline-none">
                                 <Stage1
                                     stage1={stage1}
@@ -251,6 +248,9 @@ function AssistantMessage({ message }: { message: Message }) {
                             </TabsContent>
                             <TabsContent value="review" className="m-0 focus-visible:outline-none">
                                 <Stage2 stage2={stage2} labelToModel={label_to_model} />
+                            </TabsContent>
+                            <TabsContent value="synthesis" className="m-0 focus-visible:outline-none">
+                                <Stage3 stage3={stage3} />
                             </TabsContent>
                         </div>
                     </Tabs>
