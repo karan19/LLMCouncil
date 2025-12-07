@@ -8,7 +8,7 @@ import ViewSelector from '@/components/ViewSelector';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import ChatInterface from '@/components/ChatInterface';
-import DebateView from '@/components/DebateView';
+
 import {
   getStoredTokens,
   storeTokens,
@@ -30,13 +30,7 @@ export default function Home() {
   const [chairmanModel, setChairmanModel] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Debate state
-  const [debateTurns, setDebateTurns] = useState<any[]>([]);
-  const [debateTopic, setDebateTopic] = useState('');
-  const [debateLoading, setDebateLoading] = useState(false);
-  const [debateError, setDebateError] = useState('');
-  const [panelModels, setPanelModels] = useState<string[]>(['', '', '']);
-  const [storedPanelModels, setStoredPanelModels] = useState<string[]>(['', '', '']);
+
 
   // Check for stored tokens on client mount
   useEffect(() => {
@@ -55,7 +49,7 @@ export default function Home() {
       loadModels();
       loadConversations();
       loadSavedPreferences();
-      loadDebatePanel();
+
     }
   }, [authTokens]);
 
@@ -142,56 +136,7 @@ export default function Home() {
     }
   };
 
-  const loadDebatePanel = async () => {
-    try {
-      const res = await api.getDebatePanel();
-      const loadedPanel = res.panel_models || ['', '', ''];
-      setStoredPanelModels(loadedPanel);
-      setPanelModels(loadedPanel);
-    } catch (error) {
-      console.error('Failed to load debate panel:', error);
-    }
-  };
 
-  const saveDebatePanel = async (newPanelModels: string[]) => {
-    try {
-      await api.saveDebatePanel(newPanelModels);
-      setStoredPanelModels(newPanelModels);
-    } catch (error) {
-      console.error('Failed to save debate panel:', error);
-    }
-  };
-
-  const handlePanelModelChange = async (index: number, model: string) => {
-    const newPanelModels = [...panelModels];
-    newPanelModels[index] = model;
-    setPanelModels(newPanelModels);
-    setDebateTurns([]);
-
-    // Save to backend
-    await saveDebatePanel(newPanelModels);
-  };
-
-  const handleDebateTopicSubmit = async () => {
-    // Check if we have stored panel models configured
-    const hasValidPanel = panelModels.some(Boolean);
-    if (!hasValidPanel) {
-      setDebateError('Please configure your debate panel models first.');
-      return;
-    }
-
-    setDebateLoading(true);
-    setDebateError('');
-    try {
-      const result = await api.startDebate(debateTopic);
-      setDebateTurns(result.turns || []);
-      if (result.topic) setDebateTopic(result.topic);
-    } catch (err: any) {
-      setDebateError(err.message || 'Failed to run debate');
-    } finally {
-      setDebateLoading(false);
-    }
-  };
 
   const handleToggleModel = (model: string) => {
     let newModels;
@@ -385,7 +330,7 @@ export default function Home() {
           onLogout={handleLogout}
           onBack={selectedView ? () => setSelectedView(null) : undefined}
           showBackButton={!!selectedView}
-          title={selectedView === 'agentCouncil' ? 'Agent Council' : selectedView === 'debate' ? 'Debate Mode' : undefined}
+          title={selectedView === 'agentCouncil' ? 'Agent Council' : undefined}
         />
 
         {/* Main Content */}
@@ -411,19 +356,7 @@ export default function Home() {
                 canSend={(selectedModels && selectedModels.length > 0) || availableModels.length > 0}
               />
             </div>
-          ) : selectedView === 'debate' ? (
-            <DebateView
-              panelModels={panelModels}
-              availableModels={availableModels}
-              onPanelModelChange={handlePanelModelChange}
-              debateTurns={debateTurns}
-              debateTopic={debateTopic}
-              onDebateTopicChange={setDebateTopic}
-              onStartDebate={handleDebateTopicSubmit}
-              debateLoading={debateLoading}
-              debateError={debateError}
-              onReturn={() => setSelectedView(null)}
-            />
+
           ) : (
             <ViewSelector onSelectView={setSelectedView} />
           )}

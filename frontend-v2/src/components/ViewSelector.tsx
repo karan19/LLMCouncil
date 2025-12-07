@@ -18,13 +18,7 @@ const VIEW_OPTIONS = [
         description: 'Run the three-stage council flow, review every model, and read the final chairman synthesis.',
         cta: 'Enter Agent Council',
     },
-    {
-        id: 'debate',
-        label: 'Debate Mode',
-        icon: Users,
-        description: 'Place a topic in the center and let each model take turns speaking around the table.',
-        cta: 'Enter Debate',
-    },
+
 ];
 
 export default function ViewSelector({ onSelectView }: ViewSelectorProps) {
