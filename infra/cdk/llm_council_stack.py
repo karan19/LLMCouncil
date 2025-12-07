@@ -122,9 +122,26 @@ class LlmCouncilStack(Stack):
         fn_url = lambda_fn.add_function_url(
             auth_type=_lambda.FunctionUrlAuthType.NONE,  # Auth handled in code via JWT
             cors=_lambda.FunctionUrlCorsOptions(
-                allowed_origins=["*"],
-                allowed_methods=[_lambda.HttpMethod.ALL],
-                allowed_headers=["Content-Type", "Authorization"],
+                allowed_origins=[
+                    "https://www.multiagent.karankan19.com",
+                    "https://multiagent.karankan19.com", 
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                ],
+                allowed_methods=[
+                    _lambda.HttpMethod.GET,
+                    _lambda.HttpMethod.POST,
+                    _lambda.HttpMethod.DELETE,
+                ],
+                allowed_headers=[
+                    "Content-Type",
+                    "Authorization",
+                    "X-Amz-Date",
+                    "X-Amz-Security-Token",
+                    "X-Api-Key",
+                ],
+                exposed_headers=["*"],
+                max_age=Duration.days(1),
             ),
         )
 
