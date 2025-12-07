@@ -32,16 +32,15 @@ from .council import (
 from .openrouter import list_models as list_openrouter_models
 
 
+# Note: CORS is handled by Lambda Function URL and API Gateway cors_preflight
+# Do NOT add CORS headers here - it causes conflicts with infrastructure-level CORS
 DEFAULT_HEADERS = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Amz-Security-Token,X-Api-Key",
-    "Access-Control-Allow-Methods": "OPTIONS,GET,POST,DELETE",
 }
 
 
 def _response(status_code: int, body: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """Build an API Gateway compatible response with default CORS headers."""
+    """Build an API Gateway compatible response."""
     response = {
         "statusCode": status_code,
         "headers": DEFAULT_HEADERS,
