@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, User, ArrowRight, Loader2, Check, Sparkles } from 'lucide-react';
+import { Lock, User, ArrowRight, Loader2, Check } from 'lucide-react';
+import AnimatedLogo from '@/components/AnimatedLogo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -60,9 +61,7 @@ const LoginPage = ({ onLogin }: any) => {
                 {/* Top Section - Logo & Brand */}
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-16">
-                        <div className="p-2 bg-white/20 backdrop-blur-sm rounded-xl">
-                            <Sparkles className="w-8 h-8 text-white" />
-                        </div>
+                        <AnimatedLogo size={48} />
                         <span className="text-xl font-semibold">LLM Council</span>
                     </div>
 
@@ -105,8 +104,8 @@ const LoginPage = ({ onLogin }: any) => {
                 <div className="w-full max-w-sm space-y-8">
                     {/* Mobile Logo */}
                     <div className="text-center lg:hidden mb-8">
-                        <div className="inline-flex items-center gap-2 p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl mb-4">
-                            <Sparkles className="w-8 h-8 text-white" />
+                        <div className="inline-flex items-center justify-center mb-4">
+                            <AnimatedLogo size={56} />
                         </div>
                         <h1 className="text-xl font-bold text-slate-900">LLM Council</h1>
                     </div>
