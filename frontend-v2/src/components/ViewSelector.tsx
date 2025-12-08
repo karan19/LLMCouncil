@@ -5,6 +5,7 @@ import { Sparkles, ArrowRight, MessageSquareDashed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import AnimatedLogo from './AnimatedLogo';
 
 interface ViewSelectorProps {
     onSelectView: (viewId: string) => void;
@@ -38,9 +39,9 @@ export default function ViewSelector({ onSelectView }: ViewSelectorProps) {
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-                        className="w-16 h-16 mx-auto mb-6 rounded-xl bg-slate-900 flex items-center justify-center"
+                        className="w-16 h-16 mx-auto mb-6 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center"
                     >
-                        <Sparkles className="w-8 h-8 text-white" />
+                        <AnimatedLogo size={32} />
                     </motion.div>
                     <motion.h1
                         initial={{ opacity: 0, y: 10 }}

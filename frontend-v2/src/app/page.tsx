@@ -331,7 +331,7 @@ export default function Home() {
           onLogout={handleLogout}
           onBack={selectedView ? () => setSelectedView(null) : undefined}
           showBackButton={!!selectedView}
-          title={selectedView === 'agentCouncil' ? 'Agent Council' : undefined}
+          title={selectedView === 'agentCouncil' ? 'Agent Council' : selectedView === 'debate' ? 'Debate' : undefined}
         />
 
         {/* Main Content */}

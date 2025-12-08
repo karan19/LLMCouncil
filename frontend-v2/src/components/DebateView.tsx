@@ -314,7 +314,6 @@ export default function DebateView() {
             {/* Header / Controls */}
             <div className="relative z-10 w-full p-4 border-b border-slate-200 bg-white/80 backdrop-blur-sm flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-semibold text-slate-900">Debate Mode</h2>
                     {isDebating && (
                         <div className="text-sm text-slate-500 px-3 py-1 bg-slate-100 rounded-full">
                             Topic: <span className="font-medium text-slate-900">{topic}</span>
