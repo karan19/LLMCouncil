@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, Loader2, User, Bot, Sparkles } from 'lucide-react';
+import AnimatedLogo from './AnimatedLogo';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -71,8 +72,8 @@ export default function ChatInterface({
         return (
             <div className="flex-1 flex items-center justify-center bg-slate-50 h-full">
                 <div className="text-center">
-                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                        <Sparkles className="w-10 h-10 text-slate-400" />
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg">
+                        <AnimatedLogo size={48} />
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-2">
                         Welcome to LLM Council
